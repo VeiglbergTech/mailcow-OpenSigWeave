@@ -60,6 +60,51 @@
   </div>
 </div>
 
+<div class="modal fade" id="osw-domain-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content osw-modal">
+      <div class="modal-header">
+        <h5 class="modal-title" id="osw-domain-title">Domain hinzufügen</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="osw-domain-id">
+        <div class="mb-3">
+          <label class="form-label" for="osw-domain-name">Domainname</label>
+          <input class="form-control" id="osw-domain-name" maxlength="253" placeholder="example.org" autocomplete="off" required>
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="osw-domain-active" checked>
+          <label class="form-check-label" for="osw-domain-active">Domain aktiv</label>
+          <div class="form-text">Inaktive Domains werden bei der Signaturauswahl nicht berücksichtigt.</div>
+        </div>
+        <hr>
+        <h6>Signatur-Richtlinien</h6>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="osw-domain-overrides" checked>
+          <label class="form-check-label" for="osw-domain-overrides">Benutzer dürfen eigene Signaturen überschreiben</label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="osw-domain-replies">
+          <label class="form-check-label" for="osw-domain-replies">Signaturen auch in Antworten einfügen</label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="osw-domain-trim" checked>
+          <label class="form-check-label" for="osw-domain-trim">Leerzeichen und überflüssige Zeilenumbrüche bereinigen</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="osw-domain-strip-device">
+          <label class="form-check-label" for="osw-domain-strip-device">Automatisch angehängte Gerätesignaturen entfernen</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="osw-save-domain">Domain speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="osw-signature-modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content osw-modal">
