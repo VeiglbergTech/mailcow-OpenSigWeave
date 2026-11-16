@@ -88,6 +88,7 @@ The preferred low-duplication option is a **headless internal OpenSigWeave engin
 - The internal service uses Mailcow's existing MariaDB service and a dedicated schema/table prefix. No PostgreSQL service is deployed.
 - Mailcow's PHP footer adapter calls only the private engine API. Requests are authenticated server-to-server; browser-supplied identity headers are not trusted.
 - Mailcow's existing LDAP identity sync fetches allowlisted profile attributes in the same paged LDAP search and writes them to the reserved mailbox custom-attributes namespace. No additional LDAP connection is created.
+- OpenSigWeave domain policies reference canonical Mailcow domains. Before rendering, the engine verifies the target against Mailcow's `domain` table and requires the Mailcow domain to be active. OpenSigWeave cannot create independent mail domains.
 - Rspamd continues to call Mailcow's existing footer.php endpoint and remains the sole MIME injector. footer.php calls the private engine when explicitly enabled; the native Mailcow footer remains the fallback.
 
 This option preserves the existing Python rule/selection/rendering/sanitization logic better than an immediate full rewrite in PHP, while the user-facing application remains native Mailcow. Before implementation, verify the MariaDB driver and all Alembic migrations against the exact Mailcow MariaDB version. If the migrations or dialect behavior are not safe, implement a dedicated MariaDB persistence adapter rather than forcing incompatible migrations.
