@@ -102,6 +102,16 @@ final class EngineClient
     }
 
     /** @return array<string, mixed> */
+    public function previewDomainSignature(string $domain, string $htmlContent): array
+    {
+        return $this->request(
+            'POST',
+            'internal/admin/domains/' . rawurlencode($domain) . '/preview',
+            ['html_content' => $htmlContent]
+        );
+    }
+
+    /** @return array<string, mixed> */
     public function listDomainSignatures(string $domain): array
     {
         return $this->request('GET', 'internal/admin/domains/' . rawurlencode($domain) . '/signatures');
