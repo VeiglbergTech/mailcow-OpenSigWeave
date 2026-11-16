@@ -31,7 +31,7 @@ from signature_renderer import (
     prepare_group_placeholders, render_signature_template, strip_group_placeholders,
 )
 from signature_sanitizer import sanitize_signature_html
-from signature_storage import SignatureFileStore, SignatureStorageError
+from signature_storage import MAX_SIGNATURE_BYTES, SignatureFileStore, SignatureStorageError
 
 logger = logging.getLogger("opensigweave")
 ENGINE_API_KEY = os.environ.get("ENGINE_API_KEY", "")
@@ -381,6 +381,15 @@ class SignatureAdminUpdateRequest(BaseModel):
 VALID_SIGNATURE_MODES = {"AUTO", "PROFESSIONAL", "INTERNAL", "NONE"}
 
 
+def sanitize_admin_html(html_content: str) -> str:
+    sanitized = sanitize_signature_html(html_content)
+    if not sanitized.strip():
+        raise HTTPException(status_code=422, detail="Signature HTML is empty after sanitization")
+    if len(sanitized.encode("utf-8")) > MAX_SIGNATURE_BYTES:
+        raise HTTPException(status_code=422, detail="Signature HTML exceeds the maximum allowed size")
+    return sanitized
+
+
 def normalize_admin_domain(value: str) -> str:
     domain = value.strip().rstrip(".").casefold()
     labels = domain.split(".")
@@ -456,9 +465,7 @@ def create_signature_version(
     html_content: str,
     created_by: str | None,
 ) -> SignatureVersionDB:
-    sanitized = sanitize_signature_html(html_content)
-    if not sanitized.strip():
-        raise HTTPException(status_code=422, detail="Signature HTML is empty after sanitization")
+    sanitized = sanitize_admin_html(html_content)
     latest = db.execute(
         select(SignatureVersionDB)
         .where(SignatureVersionDB.signature_id == signature.id)
@@ -579,9 +586,7 @@ def create_domain_signature(
     version_uuid = uuid.uuid4()
     stored = None
     try:
-        sanitized = sanitize_signature_html(request.html_content)
-        if not sanitized.strip():
-            raise HTTPException(status_code=422, detail="Signature HTML is empty after sanitization")
+        sanitized = sanitize_admin_html(request.html_content)
         stored = signature_file_store.write(version_uuid, name, sanitized)
         version = SignatureVersionDB(
             id=version_uuid.hex,
