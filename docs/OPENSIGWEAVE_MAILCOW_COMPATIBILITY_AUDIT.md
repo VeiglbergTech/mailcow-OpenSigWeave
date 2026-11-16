@@ -147,3 +147,11 @@ Extend Mailcow's existing identity-sync flow, rather than adding another connect
 The exact public placeholder names and whether manual per-mailbox overrides take precedence over directory values remain product decisions. They must be explicit and documented before implementation.
 
 **Conclusion:** the telephone number can be sourced from AD without a new connection, but the current Mailcow sync does not yet copy it into the mailbox footer variables. A small extension to the existing Mailcow identity sync is required.
+
+## OpenSigWeave engine identity dependency
+
+The upstream signature endpoint is currently `GET /api/signature/{email}`. It validates `X-Engine-Key`, but then obtains profile attributes through `get_identity_attributes()`. That function can call the standalone OpenSigWeave identity-provider registry (OIDC/LDAP) and its cache. The FastAPI startup also contains a migration path for legacy standalone identity-provider environment settings.
+
+This behavior must not be carried into Mailcow mode. The Mailcow adapter needs a separate authenticated request contract that passes a bounded allowlisted profile payload sourced by Mailcow from `mailbox.custom_attributes`. The engine must construct its identity context from that payload and a stable Mailcow mailbox principal, and must not invoke the standalone provider registry, cache, LDAP or OIDC provider code. The standalone endpoint may remain available in the original OpenSigWeave project; the Mailcow build must expose only its headless, Mailcow-specific API and health endpoint.
+
+This is a source-level finding from the current upstream `main.py`; it is not yet implemented.
