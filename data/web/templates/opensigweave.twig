@@ -1,0 +1,96 @@
+{% extends 'base.twig' %}
+
+{% block content %}
+<div class="container-fluid osw-admin">
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
+    <div>
+      <h1 class="mb-1"><i class="bi bi-envelope-paper"></i> OpenSigWeave</h1>
+      <p class="text-muted mb-0">Zentrale Verwaltung dynamischer E-Mail-Signaturen</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" id="osw-refresh"><i class="bi bi-arrow-clockwise"></i> Aktualisieren</button>
+      <button class="btn btn-danger" id="osw-new-signature"><i class="bi bi-plus-lg"></i> Neue Signatur</button>
+    </div>
+  </div>
+
+  {% if not opensigweave_enabled %}
+  <div class="alert alert-warning"><strong>Signatur-Injektion ist deaktiviert.</strong> Die Verwaltung kann vorbereitet werden; ausgehende Nachrichten erhalten weiterhin den normalen Mailcow-Footer.</div>
+  {% endif %}
+  <div id="osw-alert" class="alert d-none" role="status"></div>
+
+  <div class="row g-4">
+    <div class="col-12 col-xl-4">
+      <section class="card osw-panel h-100">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong><i class="bi bi-globe2"></i> Domains</strong>
+          <button class="btn btn-sm btn-outline-light" id="osw-new-domain"><i class="bi bi-plus-lg"></i> Domain</button>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Domains werden hier für die Signaturverwaltung freigeschaltet.</p>
+          <div id="osw-domains" class="osw-list"><span class="text-muted">Lade Domains …</span></div>
+        </div>
+      </section>
+    </div>
+    <div class="col-12 col-xl-8">
+      <section class="card osw-panel">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong><i class="bi bi-pen"></i> Signaturen</strong>
+          <span class="badge text-bg-secondary" id="osw-signature-count">0</span>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle osw-table mb-0">
+              <thead><tr><th>Name</th><th>Modus</th><th>Geltungsbereich</th><th>Status</th><th class="text-end">Aktionen</th></tr></thead>
+              <tbody id="osw-signatures"><tr><td colspan="5" class="text-muted">Lade Signaturen …</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="osw-signature-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content osw-modal">
+      <div class="modal-header">
+        <h5 class="modal-title" id="osw-modal-title">Neue Signatur</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="osw-signature-id">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label" for="osw-signature-name">Signaturname</label>
+            <input class="form-control" id="osw-signature-name" maxlength="255" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="osw-signature-mode">Modus</label>
+            <select class="form-select" id="osw-signature-mode">
+              <option value="AUTO">Automatisch</option>
+              <option value="PROFESSIONAL">Professionell</option>
+              <option value="INTERNAL">Intern</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="osw-signature-domains">Zugeordnete Domains</label>
+            <select class="form-select" id="osw-signature-domains" multiple size="4"></select>
+            <div class="form-text">Keine Auswahl bedeutet globale Verfügbarkeit.</div>
+          </div>
+        </div>
+        <label class="form-label" for="osw-signature-html">HTML-Signatur</label>
+        <textarea id="osw-signature-html"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="osw-save-signature">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script>
+var oswCsrfToken = '{{ csrf_token }}';
+</script>
+{% endblock %}
