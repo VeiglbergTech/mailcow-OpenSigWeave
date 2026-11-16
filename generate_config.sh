@@ -196,6 +196,7 @@ REDISPASS=${MAILCOW_REDISPASS:-$(LC_ALL=C </dev/urandom tr -dc A-Za-z0-9 2> /dev
 
 # Private key shared only by the Mailcow footer adapter and the OpenSigWeave engine
 OPENSIGWEAVE_ENGINE_KEY=${MAILCOW_OPENSIGWEAVE_ENGINE_KEY:-$(LC_ALL=C </dev/urandom tr -dc A-Za-z0-9 2> /dev/null | head -c 64)}
+OPENSIGWEAVE_ADMIN_KEY=${MAILCOW_OPENSIGWEAVE_ADMIN_KEY:-$(LC_ALL=C </dev/urandom tr -dc A-Za-z0-9 2> /dev/null | head -c 64)}
 OPENSIGWEAVE_ENABLED=n
 
 # ------------------------------
