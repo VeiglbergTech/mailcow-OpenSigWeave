@@ -815,10 +815,10 @@ rspamd_config:register_symbol({
           rspamd_logger.infox(rspamd_config, "domain wide footer response for user %s is not valid JSON", uname)
         else
           if footer and type(footer) == "table" and (footer.html and footer.html ~= "" or footer.plain and footer.plain ~= "")  then
-            rspamd_logger.infox(rspamd_config, "found domain wide footer for user %s: html=%s, plain=%s, vars=%s", uname, footer.html, footer.plain, footer.vars)
+            rspamd_logger.infox(rspamd_config, "found domain wide footer for user %s (html=%s, plain=%s)", uname, footer.html ~= nil and footer.html ~= "", footer.plain ~= nil and footer.plain ~= "")
 
             if footer.skip_replies ~= 0 then
-              in_reply_to = task:get_header_raw('in-reply-to')
+              local in_reply_to = task:get_header_raw('in-reply-to')
               if in_reply_to then
                 rspamd_logger.infox(rspamd_config, "mail is a reply - skip footer")
                 return
