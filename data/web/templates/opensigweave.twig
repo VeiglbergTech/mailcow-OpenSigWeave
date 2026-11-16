@@ -100,13 +100,13 @@
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <input type="hidden" name="domain" value="{{ selected_domain }}">
               <input type="hidden" name="signature_id" value="{{ selected_signature.id }}">
-              <input type="hidden" name="action" value="save_version">
               <div class="mb-3">
                 <label class="form-label" for="signature-html">HTML-Inhalt</label>
                 <textarea class="form-control font-monospace" id="signature-html" name="html_content" rows="14" maxlength="65536" required>{{ selected_signature.html_content }}</textarea>
                 <div class="form-text">Maximal 64 KiB. Unsicheres HTML wird vor dem Speichern serverseitig bereinigt.</div>
               </div>
-              <button type="submit" class="btn btn-primary">Neue Version speichern</button>
+              <button type="submit" name="action" value="save_version" class="btn btn-primary">Neue Version speichern</button>
+              <button type="submit" name="action" value="preview" class="btn btn-outline-secondary">Vorschau</button>
             </form>
 
             <hr>
@@ -172,33 +172,42 @@
             <form method="post" action="{{ page_path }}?domain={{ selected_domain|url_encode }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <input type="hidden" name="domain" value="{{ selected_domain }}">
-              <input type="hidden" name="action" value="create">
               <div class="row g-3">
                 <div class="col-12 col-lg-6">
                   <label class="form-label" for="signature-name">Signaturname</label>
-                  <input class="form-control" id="signature-name" name="name" maxlength="255" required>
+                  <input class="form-control" id="signature-name" name="name" maxlength="255" value="{{ create_name }}" required>
                 </div>
                 <div class="col-12 col-lg-6">
                   <label class="form-label" for="signature-mode">Signaturmodus</label>
                   <select class="form-select" id="signature-mode" name="mode">
-                    <option value="AUTO">AUTO</option>
-                    <option value="PROFESSIONAL">PROFESSIONAL</option>
-                    <option value="INTERNAL">INTERNAL</option>
-                    <option value="NONE">NONE</option>
+                    <option value="AUTO" {% if create_mode == 'AUTO' %}selected{% endif %}>AUTO</option>
+                    <option value="PROFESSIONAL" {% if create_mode == 'PROFESSIONAL' %}selected{% endif %}>PROFESSIONAL</option>
+                    <option value="INTERNAL" {% if create_mode == 'INTERNAL' %}selected{% endif %}>INTERNAL</option>
+                    <option value="NONE" {% if create_mode == 'NONE' %}selected{% endif %}>NONE</option>
                   </select>
                 </div>
                 <div class="col-12">
                   <label class="form-label" for="new-signature-html">HTML-Inhalt</label>
-                  <textarea class="form-control font-monospace" id="new-signature-html" name="html_content" rows="10" maxlength="65536" required></textarea>
+                  <textarea class="form-control font-monospace" id="new-signature-html" name="html_content" rows="10" maxlength="65536" required>{{ create_html }}</textarea>
                   <div class="form-text">Maximal 64 KiB. Unsicheres HTML wird vor dem Speichern serverseitig bereinigt.</div>
                 </div>
                 <div class="col-12">
-                  <button type="submit" class="btn btn-primary">Signatur anlegen</button>
+                  <button type="submit" name="action" value="create" class="btn btn-primary">Signatur anlegen</button>
+                  <button type="submit" name="action" value="preview" class="btn btn-outline-secondary">Vorschau</button>
                 </div>
               </div>
             </form>
           </div>
         </div>
+        {% if preview_html is not null %}
+        <div class="card mt-3">
+          <div class="card-header"><strong>Vorschau mit Beispieldaten</strong></div>
+          <div class="card-body">
+            <iframe title="OpenSigWeave-Signaturvorschau" sandbox="" srcdoc="{{ preview_html|e('html_attr') }}" style="display:block;width:100%;height:360px;border:1px solid #dee2e6;background:#fff;"></iframe>
+          </div>
+        </div>
+        {% endif %}
+
         {% else %}
         <div class="alert alert-info">Wähle links eine aktive Mailcow-Domain aus.</div>
         {% endif %}
