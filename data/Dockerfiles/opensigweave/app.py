@@ -105,7 +105,17 @@ def render_mailcow_signature(
         raise HTTPException(status_code=400, detail="Invalid authenticated mailbox")
     if not EMAIL_PATTERN.fullmatch(envelope_sender):
         raise HTTPException(status_code=400, detail="Invalid envelope sender")
-    if len(target_domain) > 253 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", target_domain):
+    labels = target_domain.split(".")
+    if (
+        len(target_domain) > 253
+        or len(labels) < 2
+        or any(
+            not label
+            or len(label) > 63
+            or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+            for label in labels
+        )
+    ):
         raise HTTPException(status_code=400, detail="Invalid target domain")
 
     domain_part = target_domain
@@ -138,9 +148,8 @@ def render_mailcow_signature(
 
     mode_candidate = (request.mode or "").strip().upper()
     explicit_mode = mode_candidate in {"AUTO", "PROFESSIONAL", "INTERNAL", "NONE"}
-    if request.mode and not explicit_mode:
-        raise HTTPException(status_code=400, detail="Unsupported signature mode")
-
+    # Invalid mode values are ignored, matching the standalone engine contract;
+    # normal rules and automatic selection remain the fallback.
     marker_requested = request.signature_name is not None or request.signature_code is not None
     if marker_requested and not explicit_mode:
         marker_name = (request.signature_name or "").strip()
