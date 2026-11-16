@@ -120,7 +120,7 @@ jobs:
           php -l data/web/domainadmin/opensigweave.php
           php -l data/web/inc/lib/mailcow/OpenSigWeave/Repository/DomainRepository.php
           php -l data/web/inc/lib/mailcow/OpenSigWeave/Service/DomainAccessService.php
-          php -r 'require "data/web/inc/lib/vendor/autoload.php"; $loader = new Twig\\Loader\\FilesystemLoader("data/web/templates"); $twig = new Twig\\Environment($loader); $twig->load("opensigweave.twig");'
+          php -r 'require "data/web/inc/lib/vendor/autoload.php"; $loader = new Twig\Loader\FilesystemLoader("data/web/templates"); $twig = new Twig\Environment($loader); $twig->load("opensigweave.twig");'
       - name: Check modified shell scripts
         run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh scripts/sync-opensigweave-core.sh
       - name: Validate Mailcow Compose configuration
