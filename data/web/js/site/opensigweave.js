@@ -167,7 +167,7 @@
     modal = new bootstrap.Modal(byId('osw-signature-modal'));
     try {
       editor = await ClassicEditor.create(byId('osw-signature-html'), {
-        toolbar: ['undo', 'redo', '|', 'bold', 'italic', 'underline', '|', 'link', 'bulletedList', 'numberedList', '|', 'insertTable', 'alignment', '|', 'removeFormat']
+        toolbar: ['undo', 'redo', '|', 'heading', 'bold', 'italic', '|', 'link', 'bulletedList', 'numberedList', '|', 'insertTable', 'blockQuote']
       });
     } catch (error) {
       alertMessage('CKEditor 5 konnte nicht geladen werden: ' + error.message, 'danger');
