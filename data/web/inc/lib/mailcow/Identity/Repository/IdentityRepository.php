@@ -144,7 +144,15 @@ class IdentityRepository extends Repository
                  ELSE JSON_OBJECT()
                END,
                '$.opensigweave',
-               JSON_EXTRACT(:profile, ')
+               JSON_EXTRACT(:profile, '
+             )
+             WHERE `username` = :username",
+            ['profile' => $encoded, 'username' => $username]
+        );
+    }
+
+}
+)
              )
              WHERE `username` = :username",
             ['profile' => $encoded, 'username' => $username]
