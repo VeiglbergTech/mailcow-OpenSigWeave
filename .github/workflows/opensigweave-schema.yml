@@ -59,6 +59,10 @@ jobs:
         run: python -m compileall -q data/Dockerfiles/opensigweave tests/python
       - name: Build headless engine image
         run: docker build --tag opensigweave-engine-ci data/Dockerfiles/opensigweave
+      - name: Check PHP footer adapter syntax
+        run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
+      - name: Check modified shell scripts
+        run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh
       - name: Run schema, MariaDB and HTTP boundary tests
         env:
           ENGINE_API_KEY: ci-engine-key-that-is-at-least-32-characters-long
