@@ -152,7 +152,7 @@ if (!$excluded && getenv('OPENSIGWEAVE_ENABLED') === 'y' && function_exists('cur
         if (is_array($engine_result) && !empty($engine_result['html'])) {
           echo json_encode([
             'html' => $engine_result['html'],
-            'plain' => '',
+            'plain' => is_string($engine_result['plain'] ?? null) ? $engine_result['plain'] : '',
             'skip_replies' => !empty($engine_result['inject_on_replies']) ? 0 : 1,
             'vars' => '{}',
           ]);
