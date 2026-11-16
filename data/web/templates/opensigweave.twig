@@ -105,9 +105,9 @@
 
 <div class="modal fade" id="osw-group-modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content osw-modal">
-    <div class="modal-header"><h5 class="modal-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+    <div class="modal-header"><h5 class="modal-title" id="osw-group-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
-      <label class="form-label" for="osw-group-name">Gruppenname</label><input class="form-control mb-3" id="osw-group-name" maxlength="255">
+      <input type="hidden" id="osw-group-id"><label class="form-label" for="osw-group-name">Gruppenname</label><input class="form-control mb-3" id="osw-group-name" maxlength="255">
       <label class="form-label" for="osw-group-members">Signaturen</label><select class="form-select mb-3" id="osw-group-members" multiple size="5"></select>
       <label class="form-label" for="osw-group-weight">Gewichtung für ausgewählte Signaturen</label><input class="form-control mb-3" id="osw-group-weight" type="number" min="1" max="100000" value="1">
       <label class="form-label" for="osw-group-domains">Domains (leer = alle Domains)</label><select class="form-select" id="osw-group-domains" multiple size="4"></select>
@@ -117,9 +117,9 @@
 </div>
 <div class="modal fade" id="osw-rule-modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content osw-modal">
-    <div class="modal-header"><h5 class="modal-title">Regel anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+    <div class="modal-header"><h5 class="modal-title" id="osw-rule-title">Regel anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><div class="row g-3">
-      <div class="col-md-8"><label class="form-label" for="osw-rule-name">Regelname</label><input class="form-control" id="osw-rule-name" maxlength="255"></div>
+      <div class="col-md-8"><input type="hidden" id="osw-rule-id"><label class="form-label" for="osw-rule-name">Regelname</label><input class="form-control" id="osw-rule-name" maxlength="255"></div>
       <div class="col-md-4"><label class="form-label" for="osw-rule-priority">Priorität</label><input class="form-control" id="osw-rule-priority" type="number" value="0"></div>
       <div class="col-md-6"><label class="form-label" for="osw-rule-action">Aktion</label><select class="form-select" id="osw-rule-action"><option>AUTO</option><option>PROFESSIONAL</option><option>INTERNAL</option><option>NONE</option><option>GROUP</option></select></div>
       <div class="col-md-6"><label class="form-label" for="osw-rule-signature">Signatur (optional)</label><select class="form-select" id="osw-rule-signature"></select></div>
