@@ -44,6 +44,28 @@ services:
           aliases:
             - mysql
 
+    opensigweave-mailcow:
+      build:
+        context: ./data/Dockerfiles/opensigweave
+        dockerfile: Dockerfile
+      depends_on:
+        - mysql-mailcow
+      environment:
+        - DBNAME=${DBNAME}
+        - DBUSER=${DBUSER}
+        - DBPASS=${DBPASS}
+        - OPENSIGWEAVE_DB_HOST=mysql
+        - OPENSIGWEAVE_DB_PORT=3306
+        - ENGINE_API_KEY=${OPENSIGWEAVE_ENGINE_KEY}
+        - SIGNATURE_STORAGE_PATH=/var/lib/opensigweave
+      volumes:
+        - opensigweave-signatures-vol-1:/var/lib/opensigweave
+      restart: always
+      networks:
+        mailcow-network:
+          aliases:
+            - opensigweave
+
     redis-mailcow:
       image: redis:7.4.12-alpine
       entrypoint: ["/bin/sh","/redis-conf.sh"]
@@ -124,6 +146,7 @@ services:
       command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
       depends_on:
         - redis-mailcow
+        - opensigweave-mailcow
       volumes:
         - ./data/hooks/phpfpm:/hooks:Z
         - ./data/web:/web:z
@@ -162,6 +185,8 @@ services:
         - DBNAME=${DBNAME}
         - DBUSER=${DBUSER}
         - DBPASS=${DBPASS}
+        - OPENSIGWEAVE_ENGINE_KEY=${OPENSIGWEAVE_ENGINE_KEY}
+        - OPENSIGWEAVE_ENABLED=${OPENSIGWEAVE_ENABLED:-n}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
         - MAILCOW_PASS_SCHEME=${MAILCOW_PASS_SCHEME:-BLF-CRYPT}
         - IMAP_PORT=${IMAP_PORT:-143}
@@ -696,3 +721,4 @@ volumes:
   sogo-web-vol-1:
   sogo-userdata-backup-vol-1:
   clamd-db-vol-1:
+  opensigweave-signatures-vol-1:
