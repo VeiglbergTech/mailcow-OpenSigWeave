@@ -222,13 +222,16 @@ class SyncPlanner
                 self::conflict($plan, 'No template matches ' . $email);
                 continue;
             }
-            $plan->creates[] = [
+            $create = [
                 'email' => (string)$email,
                 'name' => self::name($user->name, ''),
                 'template' => $template,
                 'id' => $user->id,
-                'profile_attributes' => ($settings->provider === Settings::LDAP) ? self::mailcowProfile($user) : [],
             ];
+            if ($settings->provider === Settings::LDAP) {
+                $create['profile_attributes'] = self::mailcowProfile($user);
+            }
+            $plan->creates[] = $create;
         }
     }
 
