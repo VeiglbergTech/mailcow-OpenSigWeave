@@ -7,6 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ENGINE_PATH = REPO_ROOT / "data" / "Dockerfiles" / "opensigweave"
 sys.path.insert(0, str(ENGINE_PATH))
 
+from sqlalchemy import String, Text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.schema import CreateIndex, CreateTable
 
@@ -35,10 +36,7 @@ class OpenSigWeaveMariaDBSchemaTests(unittest.TestCase):
     def test_string_columns_have_bounded_lengths(self):
         for table in Base.metadata.tables.values():
             for column in table.columns:
-                if isinstance(column.type, mysql.VARCHAR) or (
-                    getattr(column.type, "python_type", None) is str
-                    and hasattr(column.type, "length")
-                ):
+                if isinstance(column.type, String) and not isinstance(column.type, Text):
                     self.assertIsNotNone(
                         column.type.length,
                         f"Unbounded string column: {table.name}.{column.name}",
