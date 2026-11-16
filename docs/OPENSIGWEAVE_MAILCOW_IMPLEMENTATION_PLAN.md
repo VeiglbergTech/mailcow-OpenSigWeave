@@ -74,7 +74,19 @@ The adapter must preserve the distinction between authenticated username and env
 - Extend `helper-scripts/dev_tests/test_backup_and_restore.sh` for archive creation, restore, missing archive and path validation.
 - Ensure backup/restore preserves ownership and permissions.
 
-## 4. Critical behavior to preserve
+## 4. User profile attributes (existing directory connection only)
+
+OpenSigWeave must not create its own LDAP/Active Directory connection.
+
+Use Mailcow's existing identity provider configuration and scheduled identity-sync connection. The current LDAP sync reads identity fields and one optional template-mapping attribute, but does not generally import `telephoneNumber`, `department`, `title` or similar profile fields into `mailbox.custom_attributes`.
+
+Extend that existing sync to request an explicit allowlist of profile attributes in the same LDAP search and persist them under a reserved OpenSigWeave namespace in `mailbox.custom_attributes`. Preserve unrelated custom attributes and define how empty/deleted AD values and manual overrides are handled.
+
+The existing `footer.php` already returns `mailbox.custom_attributes` as footer `vars`, so OpenSigWeave can consume the synchronized profile data without contacting AD/LDAP at message-send time. The SOGo `c_telephonenumber` schema field must not be assumed to populate these footer variables.
+
+Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `department`, `title`, `givenName`, `sn`. The final mapping and placeholder names are to be confirmed.
+
+## 5. Critical behavior to preserve
 
 - Stable signature IDs when a signature is renamed.
 - Immutable, checksummed signature versions.
@@ -87,18 +99,19 @@ The adapter must preserve the distinction between authenticated username and env
 - Mailcow's SMTP authentication and sender authorization.
 - DKIM signing after final message-body modification.
 
-## 5. Implementation order
+## 6. Implementation order
 
 1. Add MariaDB compatibility tests and make the persistence namespace work.
-2. Extract and test the headless engine runtime without copying the standalone UI.
-3. Add the Compose service with no published ports and readiness checks.
-4. Implement the PHP-to-engine adapter behind `footer.php`, with the existing Mailcow footer as fallback.
-5. Add the native PHP/Twig management pages and role-scoped authorization.
-6. Add signature-volume backup/restore support and regression tests.
-7. Add CI for PHP lint, Python unit tests, MariaDB migrations, Compose validation, footer contract and Rspamd configuration.
-8. Test actual SMTP submission with normal mailbox, send-as alias, alias domain, reply, HTML-only, plain-text and multipart messages. Verify the final DKIM signature.
+2. Extend Mailcow's existing identity sync to import explicitly mapped profile attributes through its existing directory connection; test preservation of unrelated `custom_attributes`.
+3. Extract and test the headless engine runtime without copying the standalone UI.
+4. Add the Compose service with no published ports and readiness checks.
+5. Implement the PHP-to-engine adapter behind `footer.php`, with the existing Mailcow footer as fallback.
+6. Add the native PHP/Twig management pages and role-scoped authorization.
+7. Add signature-volume backup/restore support and regression tests.
+8. Add CI for PHP lint, Python unit tests, MariaDB migrations, Compose validation, identity-sync mapping, footer contract and Rspamd configuration.
+9. Test actual SMTP submission with normal mailbox, send-as alias, alias domain, reply, HTML-only, plain-text and multipart messages. Verify the final DKIM signature.
 
-## 6. Explicit non-goals
+## 7. Explicit non-goals
 
 - A second public web application or login page.
 - A second PostgreSQL/MariaDB container.
@@ -107,6 +120,6 @@ The adapter must preserve the distinction between authenticated username and env
 - Disabling TLS verification or exposing the engine port publicly.
 - Enabling injection before real SMTP and DKIM tests pass.
 
-## 7. Current implementation state
+## 8. Current implementation state
 
 Only documentation has been committed so far. No engine files, Compose service, PHP adapter, native UI, database migrations or backup changes have been committed. The next code milestone is the MariaDB compatibility and headless-engine proof of concept.
