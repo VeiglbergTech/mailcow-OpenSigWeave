@@ -4,6 +4,20 @@
 **Active branch:** `dev`  
 **Target:** Mailcow's existing Compose, PHP-FPM, MariaDB, Rspamd and backup workflow
 
+## Current implementation progress
+
+- Private headless FastAPI engine remains on the Mailcow Compose network with no published port.
+- Native administrator and domain-administrator pages use the existing Mailcow session, ACL and CSRF token.
+- Domain administrators need the explicit `opensigweave` ACL and are restricted server-side to active, assigned Mailcow domains.
+- The first editor slice supports domain-scoped signature creation, listing, HTML version saves, version history, restore-as-new-version and activation/deactivation.
+- Engine management calls are authenticated with the internal engine key; the engine independently checks that the target Mailcow domain exists and is active.
+- Mailcow's `DB_VERSION` was advanced so existing installations run normal schema reconciliation and receive the default-disabled ACL column.
+- The signature volume is included in the fork's `backup_and_restore.sh` component backup and restore handling.
+- CI passes 456 PHP tests (1,309 assertions) and 20 Python tests, including MariaDB 10.11 integration tests.
+
+Not yet implemented: preview UI, rich-text editing, rules/variants/group administration, rename/delete flows and user-level override controls. Rspamd/MIME/reply and SMTP/DKIM end-to-end validation are still required; signature injection remains disabled.
+
+
 ## 1. Architecture decision
 
 Use the existing Mailcow footer injection pipeline as the only MIME injection path.
