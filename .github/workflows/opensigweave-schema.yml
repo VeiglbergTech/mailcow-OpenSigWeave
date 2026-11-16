@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - dev
+      - beta
     paths:
       - "data/Dockerfiles/opensigweave/**"
       - "tests/python/**"
@@ -22,6 +23,7 @@ on:
   pull_request:
     branches:
       - dev
+      - beta
     paths:
       - "data/Dockerfiles/opensigweave/**"
       - "tests/python/**"
