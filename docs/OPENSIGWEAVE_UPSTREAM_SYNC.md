@@ -24,12 +24,13 @@ remain reproducible.
 - `core/modes.py`
 - `core/rules.py`
 - `core/variant_selector.py`
-- `core/rule_repository.py, `core/slug.py``
+- `core/rule_repository.py`
+- `core/slug.py`
 - `signature_renderer.py`
 - `signature_sanitizer.py`
 - `signature_storage.py`
 
-These seven provider-neutral runtime files have been compared against the
+These eight provider-neutral runtime files have been compared against the
 current upstream `beta` branch and are byte-for-byte identical at the reviewed
 baseline.
 
@@ -44,9 +45,12 @@ Those UI changes must be implemented through native Mailcow PHP/Twig pages,
 Mailcow session/CSRF handling and server-side role checks. Copying the
 standalone `templates/`, `static/js/portal.js` or its API assumptions into
 Mailcow would create a second portal and would not work with the current
-headless engine. The native Mailcow management UI and its CRUD API remain a
-separate implementation task; do not claim the CKEditor UI is integrated until
-that work and its authorization tests are complete.
+headless engine. The native Mailcow management UI is implemented separately in
+`data/web/admin/opensigweave.php`, `data/web/templates/opensigweave.twig` and
+`data/web/js/site/opensigweave.js`. Its private management API is implemented
+in `data/Dockerfiles/opensigweave/admin_api.py` and is reached through the
+CSRF-protected PHP gateway. Continue testing the full UI and real mail flow;
+never replace it with the standalone portal.
 
 ## Files requiring a deliberate three-way merge
 
