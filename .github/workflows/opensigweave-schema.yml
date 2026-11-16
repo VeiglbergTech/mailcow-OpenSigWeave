@@ -19,6 +19,15 @@ on:
       - "data/conf/rspamd/dynmaps/footer.php"
       - "data/conf/phpfpm/crons/identity-sync.php"
       - "data/web/inc/lib/mailcow/Identity/**"
+      - "data/web/inc/lib/mailcow/OpenSigWeave/**"
+      - "data/web/inc/init_db.inc.php"
+      - "data/web/inc/header.inc.php"
+      - "data/web/admin/opensigweave.php"
+      - "data/web/domainadmin/opensigweave.php"
+      - "data/web/templates/base.twig"
+      - "data/web/templates/opensigweave.twig"
+      - "data/web/lang/lang.en-gb.json"
+      - "data/web/lang/lang.de-de.json"
       - ".github/workflows/opensigweave-schema.yml"
   pull_request:
     branches:
@@ -35,6 +44,15 @@ on:
       - "data/conf/rspamd/dynmaps/footer.php"
       - "data/conf/phpfpm/crons/identity-sync.php"
       - "data/web/inc/lib/mailcow/Identity/**"
+      - "data/web/inc/lib/mailcow/OpenSigWeave/**"
+      - "data/web/inc/init_db.inc.php"
+      - "data/web/inc/header.inc.php"
+      - "data/web/admin/opensigweave.php"
+      - "data/web/domainadmin/opensigweave.php"
+      - "data/web/templates/base.twig"
+      - "data/web/templates/opensigweave.twig"
+      - "data/web/lang/lang.en-gb.json"
+      - "data/web/lang/lang.de-de.json"
       - ".github/workflows/opensigweave-schema.yml"
 
 permissions:
@@ -94,6 +112,15 @@ jobs:
         run: docker build --tag opensigweave-engine-ci data/Dockerfiles/opensigweave
       - name: Check PHP footer adapter syntax
         run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
+      - name: Check native OpenSigWeave PHP and Twig syntax
+        run: |
+          php -l data/web/inc/init_db.inc.php
+          php -l data/web/inc/header.inc.php
+          php -l data/web/admin/opensigweave.php
+          php -l data/web/domainadmin/opensigweave.php
+          php -l data/web/inc/lib/mailcow/OpenSigWeave/Repository/DomainRepository.php
+          php -l data/web/inc/lib/mailcow/OpenSigWeave/Service/DomainAccessService.php
+          php -r 'require "data/web/inc/lib/vendor/autoload.php"; $loader = new Twig\\Loader\\FilesystemLoader("data/web/templates"); $twig = new Twig\\Environment($loader); $twig->load("opensigweave.twig");'
       - name: Check modified shell scripts
         run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh scripts/sync-opensigweave-core.sh
       - name: Validate Mailcow Compose configuration
