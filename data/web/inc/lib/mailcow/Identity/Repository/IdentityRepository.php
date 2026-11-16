@@ -127,4 +127,28 @@ class IdentityRepository extends Repository
           ON DUPLICATE KEY UPDATE `idp_disabled` = VALUES(`idp_disabled`)",
             ['username' => $username, 'provider' => $provider, 'flag' => $idpDisabled ? 1 : 0]);
     }
+
+    /**
+     * Replaces only the sync-owned OpenSigWeave namespace. Other mailbox custom
+     * attributes are preserved; missing AD fields disappear on the next sync.
+     */
+    public function setOpenSigWeaveProfile(string $username, array $profile): void
+    {
+        $encoded = json_encode($profile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $this->query(
+            "UPDATE `mailbox`
+             SET `custom_attributes` = JSON_SET(
+               CASE
+                 WHEN JSON_VALID(`custom_attributes`) = 1 AND JSON_TYPE(`custom_attributes`) = 'OBJECT'
+                 THEN `custom_attributes`
+                 ELSE JSON_OBJECT()
+               END,
+               '$.opensigweave',
+               JSON_EXTRACT(:profile, ')
+             )
+             WHERE `username` = :username",
+            ['profile' => $encoded, 'username' => $username]
+        );
+    }
+
 }
