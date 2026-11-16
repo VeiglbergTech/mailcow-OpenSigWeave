@@ -9,6 +9,11 @@ on:
       - "data/Dockerfiles/opensigweave/**"
       - "tests/python/**"
       - "data/Dockerfiles/opensigweave/core/**"
+      - "docker-compose.yml"
+      - "generate_config.sh"
+      - "update.sh"
+      - "helper-scripts/backup_and_restore.sh"
+      - "data/conf/rspamd/dynmaps/footer.php"
       - ".github/workflows/opensigweave-schema.yml"
   pull_request:
     branches:
