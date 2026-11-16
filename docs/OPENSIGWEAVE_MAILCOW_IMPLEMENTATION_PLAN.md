@@ -19,8 +19,9 @@ Target flow:
 1. Postfix authenticates the SMTP submission and passes the authenticated username to Rspamd.
 2. Rspamd's existing `MOO_FOOTER` callback calls Mailcow's existing `footer.php` endpoint.
 3. `footer.php` resolves the envelope sender domain and alias-domain target using Mailcow's own database.
-4. If OpenSigWeave is enabled for that target domain, `footer.php` calls the private OpenSigWeave engine using the authenticated mailbox identity. The engine request is server-to-server only and carries a shared key.
-5. The adapter converts the engine response into Mailcow's existing footer JSON contract: `html`, `plain`, `skip_replies`, and `vars`.
+4. If OpenSigWeave is enabled for that target domain, `footer.php` calls the private OpenSigWeave engine using the authenticated mailbox identity. The server-to-server request carries a shared key and an allowlisted profile payload sourced from Mailcow's `mailbox.custom_attributes`; it must not trust profile data supplied by the SMTP client.
+5. The Mailcow engine mode constructs its identity context from that payload and Mailcow's stable mailbox identity. It must not call OpenSigWeave's standalone `get_identity_attributes()` provider path or open its own LDAP/Active Directory/AuthentiK connection.
+6. The adapter converts the engine response into Mailcow's existing footer JSON contract: `html`, `plain`, `skip_replies`, and `vars`.
 6. If OpenSigWeave is not enabled, the existing `domain_wide_footer` lookup and response remain unchanged.
 7. The existing `MOO_FOOTER` callback performs the MIME rewrite. No second plugin injects another signature.
 
@@ -33,6 +34,7 @@ The adapter must preserve the distinction between authenticated username and env
 - Add an OpenSigWeave engine build context under `data/Dockerfiles/opensigweave/`. Its source, build and lifecycle are part of this `mailcow-dockerized` repository and its existing Compose deployment; it must not require a separately installed OpenSigWeave checkout or external service.
 - Import only the Python modules needed by the API engine, persistence, signature storage, rules, selection, rendering and sanitization.
 - Add an explicit headless runtime mode. In headless mode, only health/readiness and the authenticated signature-resolution API are reachable; login, portal, static, admin, identity-provider and backup endpoints return 404.
+- Provide a Mailcow-specific signature-resolution request that accepts a bounded JSON profile payload from `footer.php`; do not use the standalone identity-provider registry/cache or `get_identity_attributes()` in Mailcow mode. Use the authenticated mailbox's stable Mailcow identity as the principal for deterministic/group selection.
 - Keep the engine on the existing `mailcow-network`; publish no host port.
 - Use the existing Mailcow MariaDB service. Do not add PostgreSQL or a second database container.
 - Use a generated internal API key and a separate internal session secret if the existing FastAPI startup still requires one. Neither value may be committed to Git.
@@ -83,7 +85,7 @@ Use Mailcow's existing identity provider configuration and scheduled identity-sy
 
 Extend that existing sync to request an explicit allowlist of profile attributes in the same LDAP search and persist them under a reserved OpenSigWeave namespace in `mailbox.custom_attributes`. Preserve unrelated custom attributes and define how empty/deleted AD values and manual overrides are handled.
 
-The existing `footer.php` already returns `mailbox.custom_attributes` as footer `vars`, so OpenSigWeave can consume the synchronized profile data without contacting AD/LDAP at message-send time. The SOGo `c_telephonenumber` schema field must not be assumed to populate these footer variables.
+The existing `footer.php` already reads `mailbox.custom_attributes` and returns them as footer `vars`, so the adapter can read the same values and pass only the configured allowlist to the private engine without contacting AD/LDAP at message-send time. The SOGo `c_telephonenumber` schema field must not be assumed to populate these footer variables. In Mailcow mode, the standalone OpenSigWeave identity-provider registry, cache and provider lookup are bypassed entirely.
 
 Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `department`, `title`, `givenName`, `sn`. The final mapping and placeholder names are to be confirmed.
 
