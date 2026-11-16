@@ -117,6 +117,8 @@ class EngineHttpBoundaryTests(unittest.TestCase):
             "conditions": [{"kind": "domain_equals", "key": "", "value": domain_name}],
         })
         self.assertEqual(rule_update.status_code, 200, rule_update.text)
+        blocked_domain_delete = self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
+        self.assertEqual(blocked_domain_delete.status_code, 409, blocked_domain_delete.text)
 
         groups = self.client.get("/admin/groups", headers=headers)
         self.assertEqual(groups.status_code, 200, groups.text)
