@@ -16,6 +16,7 @@ os.environ.setdefault("DBPASS", "mailcow-test-password")
 os.environ.setdefault("OPENSIGWEAVE_DB_HOST", "127.0.0.1")
 os.environ.setdefault("OPENSIGWEAVE_DB_PORT", "3306")
 os.environ.setdefault("ENGINE_API_KEY", "test-engine-key-that-is-at-least-32-characters-long")
+os.environ.setdefault("ADMIN_API_KEY", "test-admin-key-that-is-at-least-32-characters-long")
 os.environ.setdefault("SIGNATURE_STORAGE_PATH", str(Path(tempfile.gettempdir()) / "opensigweave-engine-http-tests"))
 
 from alembic import command
