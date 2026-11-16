@@ -10,7 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from database import create_database_engine, create_session_factory
-from models import DomainDB, SignatureDB, SignatureDomainDB, SignatureVersionDB
+from models import (
+    DomainDB, SignatureDB, SignatureDomainDB, SignatureVersionDB,
+    SignatureVariantDB, SignatureGroupDB, SignatureGroupDomainDB,
+    SignatureGroupMemberDB, SignatureRuleDB, SignatureRuleConditionDB,
+)
+from core.slug import slugify
 from signature_sanitizer import sanitize_signature_html
 from signature_storage import SignatureFileStore, SignatureStorageError
 
@@ -50,6 +55,8 @@ class SignatureInput(BaseModel):
     mode: str = Field(default="AUTO", pattern="^(AUTO|PROFESSIONAL|INTERNAL)$")
     domain_ids: list[int] = Field(default_factory=list, max_length=256)
     is_active: bool = True
+    weight: int = Field(default=1, ge=1, le=100000)
+    variant_enabled: bool = True
 
 
 class SignatureUpdate(BaseModel):
@@ -59,6 +66,41 @@ class SignatureUpdate(BaseModel):
     mode: str | None = Field(default=None, pattern="^(AUTO|PROFESSIONAL|INTERNAL)$")
     domain_ids: list[int] | None = Field(default=None, max_length=256)
     is_active: bool | None = None
+    weight: int | None = Field(default=None, ge=1, le=100000)
+    variant_enabled: bool | None = None
+
+
+class GroupMemberInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    signature_id: str = Field(min_length=32, max_length=32)
+    weight: int = Field(default=1, ge=1, le=100000)
+    is_enabled: bool = True
+
+
+class GroupInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=255)
+    domain_ids: list[int] = Field(default_factory=list, max_length=256)
+    members: list[GroupMemberInput] = Field(default_factory=list, max_length=1000)
+    is_active: bool = True
+
+
+class RuleConditionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: str = Field(pattern="^(sender_equals|domain_equals|group_contains|claim_equals|attribute_equals)$")
+    key: str = Field(default="", max_length=255)
+    value: str = Field(min_length=1, max_length=2048)
+
+
+class RuleInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=255)
+    priority: int = Field(default=0, ge=-100000, le=100000)
+    action_mode: str = Field(pattern="^(AUTO|PROFESSIONAL|INTERNAL|NONE|GROUP)$")
+    signature_id: str | None = Field(default=None, min_length=32, max_length=32)
+    group_id: str | None = Field(default=None, min_length=32, max_length=32)
+    is_enabled: bool = True
+    conditions: list[RuleConditionInput] = Field(default_factory=list, max_length=100)
 
 
 def domain_json(row):
@@ -227,3 +269,170 @@ def remove_signature(signature_id: str, db: Session = Depends(get_db)):
         except SignatureStorageError:
             pass
     return {"deleted": signature_id}
+
+
+class _GroupDomainLink:
+    pass
+
+
+@router.get("/groups", dependencies=[Depends(require_key)])
+def get_groups(db: Session = Depends(get_db)):
+    rows = db.execute(select(SignatureGroupDB).order_by(SignatureGroupDB.name)).scalars().all()
+    result = []
+    for row in rows:
+        members = db.execute(select(SignatureGroupMemberDB).where(
+            SignatureGroupMemberDB.group_id == row.id)).scalars().all()
+        domains = db.execute(select(DomainDB.domain_name).join(
+            SignatureGroupDomainDB, SignatureGroupDomainDB.domain_id == DomainDB.id
+        ).where(SignatureGroupDomainDB.group_id == row.id)).scalars().all()
+        result.append({"id": row.id, "name": row.name, "slug": row.slug,
+                       "is_active": row.is_active, "domains": domains,
+                       "members": [{"signature_id": m.signature_id, "weight": m.weight,
+                                    "is_enabled": m.is_enabled} for m in members]})
+    return result
+
+
+@router.post("/groups", dependencies=[Depends(require_key)])
+def add_group(payload: GroupInput, db: Session = Depends(get_db)):
+    name = payload.name.strip()
+    slug = slugify(name)[:64]
+    if not slug:
+        raise HTTPException(status_code=422, detail="Group name must contain letters or numbers")
+    if db.execute(select(SignatureGroupDB).where(SignatureGroupDB.slug == slug)).scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Group name already exists")
+    ids = [m.signature_id for m in payload.members]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(status_code=422, detail="Duplicate group member")
+    if ids:
+        found = set(db.execute(select(SignatureDB.id).where(SignatureDB.id.in_(ids))).scalars().all())
+        if found != set(ids):
+            raise HTTPException(status_code=422, detail="Unknown signature ID")
+    if payload.domain_ids:
+        found_domains = set(db.execute(select(DomainDB.id).where(DomainDB.id.in_(payload.domain_ids))).scalars().all())
+        if found_domains != set(payload.domain_ids):
+            raise HTTPException(status_code=422, detail="Unknown domain ID")
+    group_id = uuid.uuid4().hex
+    row = SignatureGroupDB(id=group_id, name=name, slug=slug, is_active=payload.is_active)
+    db.add(row)
+    for member in payload.members:
+        db.add(SignatureGroupMemberDB(group_id=group_id, signature_id=member.signature_id,
+                                      weight=member.weight, is_enabled=member.is_enabled))
+    for domain_id in set(payload.domain_ids):
+        db.add(SignatureGroupDomainDB(group_id=group_id, domain_id=domain_id))
+    db.commit()
+    return {"id": group_id, "name": name, "slug": slug}
+
+
+@router.put("/groups/{group_id}", dependencies=[Depends(require_key)])
+def edit_group(group_id: str, payload: GroupInput, db: Session = Depends(get_db)):
+    row = db.get(SignatureGroupDB, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    name = payload.name.strip()
+    slug = slugify(name)[:64]
+    if not slug:
+        raise HTTPException(status_code=422, detail="Invalid group name")
+    duplicate = db.execute(select(SignatureGroupDB).where(
+        SignatureGroupDB.slug == slug, SignatureGroupDB.id != group_id
+    )).scalar_one_or_none()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Group name already exists")
+    ids = [m.signature_id for m in payload.members]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(status_code=422, detail="Duplicate group member")
+    found = set(db.execute(select(SignatureDB.id).where(SignatureDB.id.in_(ids))).scalars().all()) if ids else set()
+    if found != set(ids):
+        raise HTTPException(status_code=422, detail="Unknown signature ID")
+    found_domains = set(db.execute(select(DomainDB.id).where(DomainDB.id.in_(payload.domain_ids))).scalars().all()) if payload.domain_ids else set()
+    if found_domains != set(payload.domain_ids):
+        raise HTTPException(status_code=422, detail="Unknown domain ID")
+    row.name, row.slug, row.is_active = name, slug, payload.is_active
+    db.query(SignatureGroupMemberDB).filter(SignatureGroupMemberDB.group_id == group_id).delete(synchronize_session=False)
+    db.query(SignatureGroupDomainDB).filter(SignatureGroupDomainDB.group_id == group_id).delete(synchronize_session=False)
+    for member in payload.members:
+        db.add(SignatureGroupMemberDB(group_id=group_id, signature_id=member.signature_id,
+                                      weight=member.weight, is_enabled=member.is_enabled))
+    for domain_id in set(payload.domain_ids):
+        db.add(SignatureGroupDomainDB(group_id=group_id, domain_id=domain_id))
+    db.commit()
+    return {"id": group_id, "name": name, "slug": slug}
+
+
+@router.delete("/groups/{group_id}", dependencies=[Depends(require_key)])
+def remove_group(group_id: str, db: Session = Depends(get_db)):
+    row = db.get(SignatureGroupDB, group_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    db.delete(row)
+    db.commit()
+    return {"deleted": group_id}
+
+
+@router.get("/rules", dependencies=[Depends(require_key)])
+def get_rules(db: Session = Depends(get_db)):
+    rows = db.execute(select(SignatureRuleDB).order_by(SignatureRuleDB.priority.desc(), SignatureRuleDB.id)).scalars().all()
+    result = []
+    for row in rows:
+        conditions = db.execute(select(SignatureRuleConditionDB).where(
+            SignatureRuleConditionDB.rule_id == row.id)).scalars().all()
+        result.append({"id": row.id, "name": row.name, "priority": row.priority,
+                       "action_mode": row.action_mode, "signature_id": row.signature_id,
+                       "group_id": row.group_id, "is_enabled": row.is_enabled,
+                       "conditions": [{"kind": c.kind, "key": c.key, "value": c.value}
+                                      for c in conditions]})
+    return result
+
+
+@router.post("/rules", dependencies=[Depends(require_key)])
+def add_rule(payload: RuleInput, db: Session = Depends(get_db)):
+    if payload.action_mode == "GROUP" and not payload.group_id:
+        raise HTTPException(status_code=422, detail="GROUP rule requires a group")
+    if payload.action_mode != "GROUP" and payload.group_id:
+        raise HTTPException(status_code=422, detail="Only GROUP rules can reference a group")
+    if payload.signature_id and db.get(SignatureDB, payload.signature_id) is None:
+        raise HTTPException(status_code=422, detail="Unknown signature ID")
+    if payload.group_id and db.get(SignatureGroupDB, payload.group_id) is None:
+        raise HTTPException(status_code=422, detail="Unknown group ID")
+    rule_id = uuid.uuid4().hex
+    row = SignatureRuleDB(id=rule_id, name=payload.name.strip(), priority=payload.priority,
+                          action_mode=payload.action_mode, signature_id=payload.signature_id,
+                          group_id=payload.group_id, is_enabled=payload.is_enabled)
+    db.add(row)
+    for condition in payload.conditions:
+        db.add(SignatureRuleConditionDB(rule_id=rule_id, kind=condition.kind,
+                                        key=condition.key, value=condition.value))
+    db.commit()
+    return {"id": rule_id, "name": row.name}
+
+
+@router.put("/rules/{rule_id}", dependencies=[Depends(require_key)])
+def edit_rule(rule_id: str, payload: RuleInput, db: Session = Depends(get_db)):
+    row = db.get(SignatureRuleDB, rule_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    if payload.action_mode == "GROUP" and not payload.group_id:
+        raise HTTPException(status_code=422, detail="GROUP rule requires a group")
+    if payload.action_mode != "GROUP" and payload.group_id:
+        raise HTTPException(status_code=422, detail="Only GROUP rules can reference a group")
+    if payload.signature_id and db.get(SignatureDB, payload.signature_id) is None:
+        raise HTTPException(status_code=422, detail="Unknown signature ID")
+    if payload.group_id and db.get(SignatureGroupDB, payload.group_id) is None:
+        raise HTTPException(status_code=422, detail="Unknown group ID")
+    row.name, row.priority, row.action_mode = payload.name.strip(), payload.priority, payload.action_mode
+    row.signature_id, row.group_id, row.is_enabled = payload.signature_id, payload.group_id, payload.is_enabled
+    db.query(SignatureRuleConditionDB).filter(SignatureRuleConditionDB.rule_id == rule_id).delete(synchronize_session=False)
+    for condition in payload.conditions:
+        db.add(SignatureRuleConditionDB(rule_id=rule_id, kind=condition.kind,
+                                        key=condition.key, value=condition.value))
+    db.commit()
+    return {"id": rule_id, "name": row.name}
+
+
+@router.delete("/rules/{rule_id}", dependencies=[Depends(require_key)])
+def remove_rule(rule_id: str, db: Session = Depends(get_db)):
+    row = db.get(SignatureRuleDB, rule_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    db.delete(row)
+    db.commit()
+    return {"deleted": rule_id}
