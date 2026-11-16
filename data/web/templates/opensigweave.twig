@@ -108,8 +108,8 @@
     <div class="modal-header"><h5 class="modal-title" id="osw-group-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <input type="hidden" id="osw-group-id"><label class="form-label" for="osw-group-name">Gruppenname</label><input class="form-control mb-3" id="osw-group-name" maxlength="255">
-      <label class="form-label" for="osw-group-members">Signaturen</label><select class="form-select mb-3" id="osw-group-members" multiple size="5"></select>
-      <label class="form-label" for="osw-group-weight">Gewichtung für ausgewählte Signaturen</label><input class="form-control mb-3" id="osw-group-weight" type="number" min="1" max="100000" value="1">
+      <label class="form-label">Signaturen und individuelle Gewichtung</label>
+      <div id="osw-group-member-list" class="mb-3"></div>
       <label class="form-label" for="osw-group-domains">Domains (leer = alle Domains)</label><select class="form-select" id="osw-group-domains" multiple size="4"></select>
     </div>
     <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-danger" id="osw-save-group">Gruppe speichern</button></div>
