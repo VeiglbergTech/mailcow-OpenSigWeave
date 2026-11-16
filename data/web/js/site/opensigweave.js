@@ -39,6 +39,7 @@
     values.forEach(function (item) {
       var option = node('option', '', item[labelKey]);
       option.value = String(item[valueKey]);
+      option.selected = !!selected && selected.indexOf(String(item[valueKey])) !== -1;
       select.append(option);
     });
   }
@@ -107,6 +108,9 @@
       info.append(node('strong', '', group.name));
       info.append(node('div', 'small text-muted', group.members.length + ' Signaturen · ' +
         (group.domains.length ? group.domains.join(', ') : 'alle Domains')));
+      var edit = node('button', 'btn btn-sm btn-outline-light me-2', 'Bearbeiten');
+      edit.type = 'button';
+      edit.addEventListener('click', function () { openGroup(group); });
       var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
       remove.type = 'button';
       remove.addEventListener('click', async function () {
@@ -114,7 +118,7 @@
         try { await api('DELETE', '/admin/groups/' + group.id); await refresh(); notify('Gruppe gelöscht.', 'success'); }
         catch (error) { notify(error.message, 'danger'); }
       });
-      row.append(info, remove);
+      row.append(info, edit, remove);
       root.append(row);
     });
   }
@@ -132,6 +136,9 @@
       info.append(node('strong', '', rule.name));
       info.append(node('div', 'small text-muted', 'Priorität ' + rule.priority + ' · ' +
         rule.action_mode + ' · ' + rule.conditions.length + ' Bedingungen'));
+      var edit = node('button', 'btn btn-sm btn-outline-light me-2', 'Bearbeiten');
+      edit.type = 'button';
+      edit.addEventListener('click', function () { openRule(rule); });
       var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
       remove.type = 'button';
       remove.addEventListener('click', async function () {
@@ -139,7 +146,7 @@
         try { await api('DELETE', '/admin/rules/' + rule.id); await refresh(); notify('Regel gelöscht.', 'success'); }
         catch (error) { notify(error.message, 'danger'); }
       });
-      row.append(info, remove);
+      row.append(info, edit, remove);
       root.append(row);
     });
   }
@@ -214,6 +221,7 @@
   }
 
   async function saveGroup() {
+    var groupId = $('osw-group-id').value;
     var payload = {
       name: $('osw-group-name').value.trim(),
       domain_ids: selectedValues('osw-group-domains').map(Number),
@@ -226,7 +234,7 @@
       return;
     }
     try {
-      await api('POST', '/admin/groups', payload);
+      await api(groupId ? 'PUT' : 'POST', groupId ? '/admin/groups/' + groupId : '/admin/groups', payload);
       groupModal.hide();
       await refresh();
       notify('Gruppe gespeichert.', 'success');
@@ -234,6 +242,7 @@
   }
 
   async function saveRule() {
+    var ruleId = $('osw-rule-id').value;
     var action = $('osw-rule-action').value;
     var condition = $('osw-rule-condition').value;
     var value = $('osw-rule-value').value.trim();
@@ -251,7 +260,7 @@
       return;
     }
     try {
-      await api('POST', '/admin/rules', payload);
+      await api(ruleId ? 'PUT' : 'POST', ruleId ? '/admin/rules/' + ruleId : '/admin/rules', payload);
       ruleModal.hide();
       await refresh();
       notify('Regel gespeichert.', 'success');
