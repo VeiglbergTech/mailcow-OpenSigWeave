@@ -131,22 +131,25 @@ Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `depa
 - Added an isolated persistence model set under the osw_ table namespace and an osw_alembic_version migration table.
 - Added an initial Alembic migration and static MySQL-dialect schema checks.
 - Vendored provider-neutral OpenSigWeave rule, selection and variant modules from upstream OpenSigWeave dev commit 93b360225c5008fb60f6598e431ee2e3ff03842d.
-- Added MariaDB-specific upsert support to per-user variant rotation and group rotation; the upstream implementations currently support PostgreSQL and SQLite only.
+- Added MariaDB-specific upsert support to per-user variant rotation and group rotation.
 - Vendored sandboxed Jinja rendering, HTML allowlist sanitization and hardened immutable signature storage.
 - Added a private headless FastAPI engine. Its request contract distinguishes authenticated mailbox, SMTP envelope sender and Mailcow-resolved target domain. It accepts profile attributes from the trusted Mailcow caller and does not query LDAP/OIDC.
 - Added a non-root Docker image and an entrypoint that fixes named-volume ownership before dropping privileges.
-- Added GitHub Actions tests for MariaDB 10.11 migration, selection rotation and the HTTP authentication/validation boundary.
+- Added a private Compose service with no published port and a dedicated engine key. New installs generate the key in generate_config.sh; update.sh adds it to existing installations if absent. Injection remains disabled by default.
+- Extended Mailcow's existing PHP footer endpoint to call the engine only when explicitly enabled. The existing Mailcow footer remains the fallback, and Rspamd remains the only MIME injector.
+- Added backup/restore handling for the persistent signature volume.
+- Added GitHub Actions checks for MariaDB schema and selection, engine HTTP boundary, Docker image build, PHP syntax and shell syntax.
 
 ### Not implemented yet
 
-- Compose service, API-key provisioning and service dependency wiring.
-- PHP adapter behind Mailcow's existing footer.php pipeline.
-- Mapping from mailbox.custom_attributes to the engine profile contract.
-- Extension of Mailcow's existing LDAP identity sync for allowlisted AD profile attributes.
+- Mapping the reserved mailbox.custom_attributes.opensigweave namespace to the engine profile.
+- Extension of Mailcow's existing LDAP identity sync for allowlisted AD profile attributes, using its existing directory connection.
 - Native Mailcow management pages and role authorization.
-- Signature-volume backup/restore changes.
-- End-to-end Rspamd, SMTP, MIME and DKIM tests.
+- End-to-end Rspamd, SMTP, MIME, reply, alias/send-as and DKIM tests.
+- Verification/implementation of trim-whitespace and device-signature policies in the Mailcow Rspamd path.
 
 The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow database until the complete integration and backup procedure have been reviewed.
 
-The GitHub Actions run [#43846026542](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43846026542) passed all 13 tests against a disposable MariaDB 10.11 service. This validates the current schema, both MariaDB selection repositories and the private HTTP boundary. It does not establish a complete Mailcow deployment or production mail-flow readiness.
+The earlier MariaDB schema and selection test run [#43846026542](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43846026542) passed 13 tests. A newer CI run also validates the engine image, PHP adapter and shell scripts; the final result for the latest commit must be checked before treating that full pipeline as passed.
+
+Signature injection is disabled by default. The integration is not production-ready until the profile mapping, identity-sync extension and real SMTP/DKIM tests are complete.
