@@ -58,6 +58,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Verify pinned upstream source synchronization
+        run: |
+          bash scripts/sync-opensigweave-core.sh
+          git diff --exit-code -- data/Dockerfiles/opensigweave/UPSTREAM_COMMIT data/Dockerfiles/opensigweave/core/modes.py data/Dockerfiles/opensigweave/core/rules.py data/Dockerfiles/opensigweave/core/variant_selector.py data/Dockerfiles/opensigweave/core/rule_repository.py data/Dockerfiles/opensigweave/signature_renderer.py data/Dockerfiles/opensigweave/signature_sanitizer.py data/Dockerfiles/opensigweave/signature_storage.py
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
