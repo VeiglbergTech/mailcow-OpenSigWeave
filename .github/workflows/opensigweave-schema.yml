@@ -110,8 +110,12 @@ jobs:
         run: docker build --tag opensigweave-engine-ci data/Dockerfiles/opensigweave
       - name: Check PHP footer adapter syntax
         run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
+      - name: Install LuaJIT syntax checker
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit
       - name: Check Rspamd Lua syntax
-        run: docker run --rm --volume "$PWD:/src:ro" lua:5.1-alpine luac -p /src/data/conf/rspamd/lua/rspamd.local.lua
+        run: luajit -b data/conf/rspamd/lua/rspamd.local.lua /tmp/rspamd.local.ljbc
       - name: Check new Mailcow administration PHP syntax
         run: |
           docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/web/admin/opensigweave.php
