@@ -46,10 +46,10 @@ if (!$allowed) {
   exit;
 }
 
-$engineKey = getenv('OPENSIGWEAVE_ADMIN_KEY');
+$adminKey = getenv('OPENSIGWEAVE_ADMIN_KEY');
 if (!is_string($engineKey) || strlen($engineKey) < 32) {
   http_response_code(503);
-  echo json_encode(['detail' => 'OpenSigWeave engine key is not configured']);
+  echo json_encode(['detail' => 'OpenSigWeave administration key is not configured']);
   exit;
 }
 
