@@ -21,6 +21,8 @@ class LdapDirectory implements Directory
 {
     private const PAGE = 500;
     private const ID_ATTRIBUTES = ['objectguid', 'entryuuid', 'nsuniqueid', 'ipauniqueid'];
+    /** Profile attributes fetched in the existing paged LDAP search; never a second bind/search per mailbox. */
+    private const PROFILE_ATTRIBUTES = ['displayname', 'givenname', 'sn', 'title', 'telephonenumber', 'mobile', 'department'];
     private const AD_IN_CHAIN = '1.2.840.113556.1.4.1941';
     /** userAccountControl: ACCOUNTDISABLE */
     private const UAC_DISABLED = 0x2;
@@ -42,6 +44,7 @@ class LdapDirectory implements Directory
         $attributes = array_merge([$s->usernameField, 'displayname', 'cn', 'useraccountcontrol'],
             ($s->attributeField !== '') ? [$s->attributeField] : [],
             self::idAttributes($s->idAttribute),
+            self::PROFILE_ATTRIBUTES,
             ($withGroups && $s->groupMemberMode === 'memberof') ? ['memberof'] : []);
         $users = [];
         $memberOf = [];
@@ -54,7 +57,8 @@ class LdapDirectory implements Directory
                 self::first($entry, 'displayname') ?? self::first($entry, 'cn') ?? '',
                 !isset($disabled[$dn]) && !($uac !== null && ((int)$uac & self::UAC_DISABLED)),
                 ($s->attributeField !== '') ? self::values($entry, $s->attributeField) : [],
-                $dn);
+                $dn,
+                self::profileAttributes($entry));
             $users[$user->id] = $user;
             $memberOf[$user->id] = array_map('strtolower', self::values($entry, 'memberof'));
         }
@@ -198,6 +202,25 @@ class LdapDirectory implements Directory
                 return $entries;
             }
         }
+    }
+
+    /** Normalize the explicitly allowlisted AD fields without changing the legacy template mapper. */
+    private static function profileAttributes(array $entry): array
+    {
+        $attributes = [];
+        foreach (self::PROFILE_ATTRIBUTES as $attribute) {
+            $value = self::first($entry, $attribute);
+            if ($value !== null && $value !== '') {
+                $attributes[$attribute] = $value;
+            }
+        }
+        return [
+            'first_name' => self::first($entry, 'givenname') ?? '',
+            'last_name' => self::first($entry, 'sn') ?? '',
+            'title' => self::first($entry, 'title') ?? '',
+            'phone' => self::first($entry, 'telephonenumber') ?? '',
+            'attributes' => $attributes,
+        ];
     }
 
     /** First value of an attribute: ldap_get_entries() format or LdapRecord attributes */
