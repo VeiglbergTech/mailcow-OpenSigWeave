@@ -66,13 +66,18 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         domain_id = domain.json()["id"]
         domain_update = self.client.put("/admin/domains/" + str(domain_id), headers=headers, json={
             "domain_name": domain_name,
-            "is_active": True,
-            "allow_overrides": True,
-            "inject_on_replies": False,
-            "trim_whitespace": True,
-            "strip_device_signatures": False,
+            "is_active": False,
+            "allow_overrides": False,
+            "inject_on_replies": True,
+            "trim_whitespace": False,
+            "strip_device_signatures": True,
         })
         self.assertEqual(domain_update.status_code, 200, domain_update.text)
+        self.assertEqual(domain_update.json()["is_active"], False)
+        self.assertEqual(domain_update.json()["allow_overrides"], False)
+        self.assertEqual(domain_update.json()["inject_on_replies"], True)
+        self.assertEqual(domain_update.json()["trim_whitespace"], False)
+        self.assertEqual(domain_update.json()["strip_device_signatures"], True)
 
         signature = self.client.post("/admin/signatures", headers=headers, json={
             "name": f"Admin signature {suffix}",
@@ -105,7 +110,10 @@ class EngineHttpBoundaryTests(unittest.TestCase):
             "priority": 50,
             "action_mode": "GROUP",
             "group_id": group_id,
-            "conditions": [{"kind": "domain_equals", "key": "", "value": domain_name}],
+            "conditions": [
+                {"kind": "domain_equals", "key": "", "value": domain_name},
+                {"kind": "sender_equals", "key": "", "value": f"alice@{domain_name}"},
+            ],
         })
         self.assertEqual(rule.status_code, 200, rule.text)
         rule_id = rule.json()["id"]
@@ -114,7 +122,11 @@ class EngineHttpBoundaryTests(unittest.TestCase):
             "priority": 75,
             "action_mode": "GROUP",
             "group_id": group_id,
-            "conditions": [{"kind": "domain_equals", "key": "", "value": domain_name}],
+            "is_enabled": False,
+            "conditions": [
+                {"kind": "domain_equals", "key": "", "value": domain_name},
+                {"kind": "sender_equals", "key": "", "value": f"alice@{domain_name}"},
+            ],
         })
         self.assertEqual(rule_update.status_code, 200, rule_update.text)
         blocked_domain_delete = self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
@@ -128,6 +140,9 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(rules.status_code, 200, rules.text)
         stored_rule = next(item for item in rules.json() if item["name"] == f"Admin rule {suffix}")
         self.assertEqual(stored_rule["priority"], 75)
+        self.assertFalse(stored_rule["is_enabled"])
+        self.assertEqual(len(stored_rule["conditions"]), 2)
+        self.assertEqual(stored_rule["conditions"][1]["kind"], "sender_equals")
 
         self.assertEqual(self.client.delete("/admin/rules/" + rule_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/groups/" + group_id, headers=headers).status_code, 200)
