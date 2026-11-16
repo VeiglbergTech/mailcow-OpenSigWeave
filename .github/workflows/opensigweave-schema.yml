@@ -124,6 +124,7 @@ jobs:
           DBROOT: ci-db-root-password
           REDISPASS: ci-redis-password
           OPENSIGWEAVE_ENGINE_KEY: ci-opensigweave-engine-key-at-least-32-chars
+          OPENSIGWEAVE_ADMIN_KEY: ci-opensigweave-admin-key-at-least-32-chars
           OPENSIGWEAVE_ENABLED: n
           MAILCOW_HOSTNAME: mail.example.test
           TZ: Etc/UTC
