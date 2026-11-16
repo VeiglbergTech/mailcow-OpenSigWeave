@@ -84,6 +84,12 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         })
         self.assertEqual(group.status_code, 200, group.text)
         group_id = group.json()["id"]
+        group_update = self.client.put("/admin/groups/" + group_id, headers=headers, json={
+            "name": f"Admin group {suffix}",
+            "domain_ids": [domain_id],
+            "members": [{"signature_id": signature_id, "weight": 11, "is_enabled": True}],
+        })
+        self.assertEqual(group_update.status_code, 200, group_update.text)
 
         rule = self.client.post("/admin/rules", headers=headers, json={
             "name": f"Admin rule {suffix}",
@@ -93,15 +99,26 @@ class EngineHttpBoundaryTests(unittest.TestCase):
             "conditions": [{"kind": "domain_equals", "key": "", "value": domain_name}],
         })
         self.assertEqual(rule.status_code, 200, rule.text)
+        rule_id = rule.json()["id"]
+        rule_update = self.client.put("/admin/rules/" + rule_id, headers=headers, json={
+            "name": f"Admin rule {suffix}",
+            "priority": 75,
+            "action_mode": "GROUP",
+            "group_id": group_id,
+            "conditions": [{"kind": "domain_equals", "key": "", "value": domain_name}],
+        })
+        self.assertEqual(rule_update.status_code, 200, rule_update.text)
 
         groups = self.client.get("/admin/groups", headers=headers)
         self.assertEqual(groups.status_code, 200, groups.text)
-        self.assertTrue(any(item["id"] == group_id for item in groups.json()))
+        stored_group = next(item for item in groups.json() if item["id"] == group_id)
+        self.assertEqual(stored_group["members"][0]["weight"], 11)
         rules = self.client.get("/admin/rules", headers=headers)
         self.assertEqual(rules.status_code, 200, rules.text)
-        self.assertTrue(any(item["name"] == f"Admin rule {suffix}" for item in rules.json()))
+        stored_rule = next(item for item in rules.json() if item["name"] == f"Admin rule {suffix}")
+        self.assertEqual(stored_rule["priority"], 75)
 
-        self.assertEqual(self.client.delete("/admin/rules/" + rule.json()["id"], headers=headers).status_code, 200)
+        self.assertEqual(self.client.delete("/admin/rules/" + rule_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/groups/" + group_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/signatures/" + signature_id, headers=headers).status_code, 200)
         with SessionLocal() as session:
