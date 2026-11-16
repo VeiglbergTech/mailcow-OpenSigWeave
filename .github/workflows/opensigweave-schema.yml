@@ -72,7 +72,7 @@ jobs:
       - name: Verify pinned upstream source synchronization
         run: |
           bash scripts/sync-opensigweave-core.sh
-          git diff --exit-code -- data/Dockerfiles/opensigweave/UPSTREAM_COMMIT data/Dockerfiles/opensigweave/core/modes.py data/Dockerfiles/opensigweave/core/rules.py data/Dockerfiles/opensigweave/core/variant_selector.py data/Dockerfiles/opensigweave/core/rule_repository.py data/Dockerfiles/opensigweave/signature_renderer.py data/Dockerfiles/opensigweave/signature_sanitizer.py data/Dockerfiles/opensigweave/signature_storage.py
+          git diff --exit-code -- data/Dockerfiles/opensigweave/UPSTREAM_COMMIT data/Dockerfiles/opensigweave/core/modes.py data/Dockerfiles/opensigweave/core/rules.py data/Dockerfiles/opensigweave/core/variant_selector.py data/Dockerfiles/opensigweave/core/rule_repository.py data/Dockerfiles/opensigweave/core/slug.py data/Dockerfiles/opensigweave/signature_renderer.py data/Dockerfiles/opensigweave/signature_sanitizer.py data/Dockerfiles/opensigweave/signature_storage.py
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -95,6 +95,12 @@ jobs:
         run: docker build --tag opensigweave-engine-ci data/Dockerfiles/opensigweave
       - name: Check PHP footer adapter syntax
         run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
+      - name: Check new Mailcow administration PHP syntax
+        run: |
+          docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/web/admin/opensigweave.php
+          docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/web/inc/ajax/opensigweave.php
+      - name: Check OpenSigWeave administration JavaScript syntax
+        run: node --check data/web/js/site/opensigweave.js
       - name: Check modified shell scripts
         run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh scripts/sync-opensigweave-core.sh
       - name: Validate Mailcow Compose configuration
