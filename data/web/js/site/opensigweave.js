@@ -6,7 +6,6 @@
   var groupModal;
   var ruleModal;
   var editingGroupMembers = {};
-  var initialGroupWeight = 1;
   var editingRuleConditions = [];
   var $ = function (id) { return document.getElementById(id); };
 
@@ -228,12 +227,17 @@
     var payload = {
       name: $('osw-group-name').value.trim(),
       domain_ids: selectedValues('osw-group-domains').map(Number),
-      members: selectedValues('osw-group-members').map(function (id) {
-        var current = editingGroupMembers[id];
-        var enteredWeight = Math.max(1, Number($('osw-group-weight').value) || 1);
-        var weight = current && enteredWeight === initialGroupWeight ? current.weight : enteredWeight;
-        return { signature_id: id, weight: weight, is_enabled: current ? current.is_enabled : true };
-      })
+      members: Array.from($('osw-group-member-list').querySelectorAll('[data-signature-id]'))
+        .filter(function (entry) { return entry.querySelector('[data-member-selected]').checked; })
+        .map(function (entry) {
+          var id = entry.getAttribute('data-signature-id');
+          var current = editingGroupMembers[id];
+          return {
+            signature_id: id,
+            weight: Math.max(1, Number(entry.querySelector('[data-member-weight]').value) || 1),
+            is_enabled: current ? current.is_enabled : true
+          };
+        })
     };
     if (!payload.name || !payload.members.length) {
       notify('Bitte einen Gruppennamen und mindestens eine Signatur auswählen.', 'warning');
@@ -284,10 +288,32 @@
     $('osw-group-name').value = group ? group.name : '';
     editingGroupMembers = {};
     if (group) group.members.forEach(function (member) { editingGroupMembers[member.signature_id] = member; });
-    initialGroupWeight = group && group.members.length ? group.members[0].weight : 1;
-    $('osw-group-weight').value = String(initialGroupWeight);
-    fillSelect('osw-group-members', catalog.signatures, 'name', 'id',
-      group ? group.members.map(function (m) { return m.signature_id; }) : []);
+    var memberList = $('osw-group-member-list');
+    memberList.replaceChildren();
+    catalog.signatures.forEach(function (signature) {
+      var current = editingGroupMembers[signature.id];
+      var row = node('div', 'd-flex align-items-center justify-content-between gap-3 border rounded p-2 mb-2');
+      row.setAttribute('data-signature-id', String(signature.id));
+      var check = node('input', 'form-check-input me-2');
+      check.type = 'checkbox';
+      check.checked = !!current;
+      check.setAttribute('data-member-selected', 'true');
+      var label = node('label', 'form-check-label', signature.name);
+      label.htmlFor = 'osw-group-member-' + signature.id;
+      check.id = label.htmlFor;
+      var left = node('div', 'form-check mb-0');
+      left.append(check, label);
+      var weight = node('input', 'form-control form-control-sm');
+      weight.type = 'number';
+      weight.min = '1';
+      weight.max = '100000';
+      weight.value = String(current ? current.weight : 1);
+      weight.style.width = '110px';
+      weight.setAttribute('aria-label', 'Gewichtung für ' + signature.name);
+      weight.setAttribute('data-member-weight', 'true');
+      row.append(left, weight);
+      memberList.append(row);
+    });
     fillSelect('osw-group-domains', catalog.domains, 'domain_name', 'id',
       group ? catalog.domains.filter(function (d) { return group.domains.indexOf(d.domain_name) !== -1; }).map(function (d) { return d.id; }) : []);
     groupModal.show();
