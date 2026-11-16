@@ -18,7 +18,17 @@
   {% endif %}
   <div id="osw-alert" class="alert d-none" role="status"></div>
 
-  <div class="row g-4">
+  <div class="row g-4 mb-4">
+  <div class="col-12 col-xl-6"><section class="card osw-panel">
+    <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-collection"></i> Signaturgruppen</strong><button class="btn btn-sm btn-outline-light" id="osw-new-group">Gruppe</button></div>
+    <div class="card-body"><div id="osw-groups" class="osw-list">Lade Gruppen …</div></div>
+  </section></div>
+  <div class="col-12 col-xl-6"><section class="card osw-panel">
+    <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-diagram-3"></i> Regeln</strong><button class="btn btn-sm btn-outline-light" id="osw-new-rule">Regel</button></div>
+    <div class="card-body"><div id="osw-rules" class="osw-list">Lade Regeln …</div></div>
+  </section></div>
+</div>
+<div class="row g-4">
     <div class="col-12 col-xl-4">
       <section class="card osw-panel h-100">
         <div class="card-header d-flex align-items-center justify-content-between">
@@ -72,6 +82,10 @@
               <option value="INTERNAL">Intern</option>
             </select>
           </div>
+          <div class="col-md-3">
+            <label class="form-label" for="osw-signature-weight">Gewichtung</label>
+            <input class="form-control" id="osw-signature-weight" type="number" min="1" max="100000" value="1">
+          </div>
           <div class="col-12">
             <label class="form-label" for="osw-signature-domains">Zugeordnete Domains</label>
             <select class="form-select" id="osw-signature-domains" multiple size="4"></select>
@@ -89,6 +103,33 @@
   </div>
 </div>
 
+<div class="modal fade" id="osw-group-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content osw-modal">
+    <div class="modal-header"><h5 class="modal-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label class="form-label" for="osw-group-name">Gruppenname</label><input class="form-control mb-3" id="osw-group-name" maxlength="255">
+      <label class="form-label" for="osw-group-members">Signaturen (gewichtete Rotation, Standardgewicht 1)</label><select class="form-select mb-3" id="osw-group-members" multiple size="5"></select>
+      <label class="form-label" for="osw-group-domains">Domains (leer = alle Domains)</label><select class="form-select" id="osw-group-domains" multiple size="4"></select>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-danger" id="osw-save-group">Gruppe speichern</button></div>
+  </div></div>
+</div>
+<div class="modal fade" id="osw-rule-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content osw-modal">
+    <div class="modal-header"><h5 class="modal-title">Regel anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><div class="row g-3">
+      <div class="col-md-8"><label class="form-label" for="osw-rule-name">Regelname</label><input class="form-control" id="osw-rule-name" maxlength="255"></div>
+      <div class="col-md-4"><label class="form-label" for="osw-rule-priority">Priorität</label><input class="form-control" id="osw-rule-priority" type="number" value="0"></div>
+      <div class="col-md-6"><label class="form-label" for="osw-rule-action">Aktion</label><select class="form-select" id="osw-rule-action"><option>AUTO</option><option>PROFESSIONAL</option><option>INTERNAL</option><option>NONE</option><option>GROUP</option></select></div>
+      <div class="col-md-6"><label class="form-label" for="osw-rule-signature">Signatur (optional)</label><select class="form-select" id="osw-rule-signature"></select></div>
+      <div class="col-12"><label class="form-label" for="osw-rule-group">Gruppe (für Aktion GROUP)</label><select class="form-select" id="osw-rule-group"></select></div>
+      <div class="col-md-4"><label class="form-label" for="osw-rule-condition">Bedingung</label><select class="form-select" id="osw-rule-condition"><option value="">Keine</option><option value="sender_equals">Absender exakt</option><option value="domain_equals">Domain exakt</option><option value="group_contains">Gruppe enthält</option><option value="claim_equals">Claim exakt</option><option value="attribute_equals">Attribut exakt</option></select></div>
+      <div class="col-md-4"><label class="form-label" for="osw-rule-key">Schlüssel (Claim/Attribut)</label><input class="form-control" id="osw-rule-key"></div>
+      <div class="col-md-4"><label class="form-label" for="osw-rule-value">Wert</label><input class="form-control" id="osw-rule-value"></div>
+    </div></div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-danger" id="osw-save-rule">Regel speichern</button></div>
+  </div></div>
+</div>
 <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
 <script>
 var oswCsrfToken = '{{ csrf_token }}';
