@@ -19,8 +19,9 @@ os.environ.setdefault("SIGNATURE_STORAGE_PATH", str(Path(tempfile.gettempdir()) 
 
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import text
 from fastapi.testclient import TestClient
-from app import app, SessionLocal
+from app import app, SessionLocal, DATABASE_ENGINE
 from models import DomainDB
 
 
@@ -28,6 +29,12 @@ class EngineHttpBoundaryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         command.upgrade(Config(str(ENGINE_PATH / "alembic.ini")), "head")
+        # Minimal stand-in for Mailcow's authoritative domain table.
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE IF NOT EXISTS domain ("
+                "domain VARCHAR(255) PRIMARY KEY, active TINYINT(1) NOT NULL)"
+            ))
 
     def setUp(self):
         self.client = TestClient(app)
@@ -55,6 +62,11 @@ class EngineHttpBoundaryTests(unittest.TestCase):
     def test_signature_endpoint_renders_using_mailcow_profile_and_domain(self):
         domain_name = f"engine-{os.getpid()}-{id(self)}.example.test"
         sender = f"alice@{domain_name}"
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(
+                text("INSERT INTO domain (domain, active) VALUES (:domain, 1)"),
+                {"domain": domain_name},
+            )
         with SessionLocal() as session:
             domain = DomainDB(
                 domain_name=domain_name,
@@ -90,6 +102,51 @@ class EngineHttpBoundaryTests(unittest.TestCase):
                 if stored is not None:
                     session.delete(stored)
                     session.commit()
+            with DATABASE_ENGINE.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM domain WHERE domain = :domain"),
+                    {"domain": domain_name},
+                )
+
+    def test_inactive_mailcow_domain_never_receives_signature(self):
+        domain_name = f"inactive-{os.getpid()}-{id(self)}.example.test"
+        sender = f"alice@{domain_name}"
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(
+                text("INSERT INTO domain (domain, active) VALUES (:domain, 0)"),
+                {"domain": domain_name},
+            )
+        with SessionLocal() as session:
+            session.add(DomainDB(
+                domain_name=domain_name,
+                is_active=True,
+                template_html="<p>This must never be injected</p>",
+            ))
+            session.commit()
+        try:
+            response = self.client.post(
+                "/internal/signature",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "authenticated_user": sender,
+                    "envelope_sender": sender,
+                    "target_domain": domain_name,
+                    "profile": {},
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["html"], "")
+        finally:
+            with SessionLocal() as session:
+                stored = session.query(DomainDB).filter_by(domain_name=domain_name).one_or_none()
+                if stored is not None:
+                    session.delete(stored)
+                    session.commit()
+            with DATABASE_ENGINE.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM domain WHERE domain = :domain"),
+                    {"domain": domain_name},
+                )
 
 
 if __name__ == "__main__":
