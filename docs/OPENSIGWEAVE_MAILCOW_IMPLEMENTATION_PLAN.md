@@ -1,6 +1,6 @@
 # OpenSigWeave Mailcow Implementation Plan
 
-**Status:** Design validated against current source; implementation not started  
+**Status:** Implementation in progress; initial native signature CRUD/editor vertical slice is implemented on `dev`  
 **Active branch:** `dev`  
 **Target:** Mailcow's existing Compose, PHP-FPM, MariaDB, Rspamd and backup workflow
 
