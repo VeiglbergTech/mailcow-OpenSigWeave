@@ -806,14 +806,13 @@ rspamd_config:register_symbol({
     end
     -- retrieve footer
     local function footer_cb(err_message, code, data, headers)
-      if err or type(data) ~= 'string' then
-        rspamd_logger.infox(rspamd_config, "domain wide footer request for user %s returned invalid or empty data (\"%s\") or error (\"%s\")", uname, data, err)
+      if err_message ~= nil or code ~= 200 or type(data) ~= 'string' then
+        rspamd_logger.infox(rspamd_config, "domain wide footer request for user %s failed (HTTP %s): %s", uname, tostring(code), tostring(err_message))
       else
-
-        -- parse json string
-        local footer = cjson.decode(data)
-        if not footer then
-          rspamd_logger.infox(rspamd_config, "parsing domain wide footer for user %s returned invalid or empty data (\"%s\") or error (\"%s\")", uname, data, err)
+        -- Decode defensively so malformed map responses cannot break message processing.
+        local decoded, footer = pcall(cjson.decode, data)
+        if not decoded or type(footer) ~= 'table' then
+          rspamd_logger.infox(rspamd_config, "domain wide footer response for user %s is not valid JSON", uname)
         else
           if footer and type(footer) == "table" and (footer.html and footer.html ~= "" or footer.plain and footer.plain ~= "")  then
             rspamd_logger.infox(rspamd_config, "found domain wide footer for user %s: html=%s, plain=%s, vars=%s", uname, footer.html, footer.plain, footer.vars)
@@ -937,7 +936,7 @@ rspamd_config:register_symbol({
             end
             task:set_message(out_parts)
           else
-            rspamd_logger.infox(rspamd_config, "domain wide footer request for user %s returned invalid or empty data (\"%s\")", uname, data)
+            rspamd_logger.infox(rspamd_config, "domain wide footer response for user %s contains no usable footer", uname)
           end
         end
       end
