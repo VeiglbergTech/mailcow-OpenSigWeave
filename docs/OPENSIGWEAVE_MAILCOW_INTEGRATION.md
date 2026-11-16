@@ -65,6 +65,37 @@ The current Mailcow Compose stack already provides MariaDB, Redis, PHP-FPM, Ngin
 - Unreviewed edits to Mailcow's existing mailbox/domain permissions.
 - Enabling signature injection in production before sender authorization and DKIM ordering are proven.
 
+
+## Verified Mailcow integration points
+
+The current Mailcow source was inspected at the following paths:
+
+- `data/web/inc/prerequisites.inc.php`: initializes the existing PDO connection to MariaDB, Redis, authentication helpers and session handling.
+- `data/web/inc/vars.inc.php`: configures `$database_type = 'mysql'`, database credentials from `DBUSER` / `DBPASS`, and the existing Mailcow app-link configuration.
+- `data/web/inc/header.inc.php`: prepares built-in and configurable app links for the rendered UI.
+- `data/web/admin/dashboard.php`: demonstrates the native PHP page pattern and `protect_route(['admin'])`.
+- `data/web/inc/triggers.admin.inc.php` and `triggers.user.inc.php`: show that Mailcow login establishes `mailcow_cc_username` and `mailcow_cc_role` in the session.
+- `helper-scripts/backup_and_restore.sh`: the standard backup currently enumerates specific named volumes (vmail, crypt, Redis, Rspamd, Postfix and MariaDB). A new signature volume would not be included automatically; its backup and restore paths must be added explicitly, or signature content must be stored in MariaDB.
+
+The current Mailcow PHP application already has the authenticated PDO connection and session context available to native pages. We should not create another login flow.
+
+## Refined implementation direction
+
+The preferred low-duplication option is a **headless internal OpenSigWeave engine**, with a native Mailcow PHP frontend:
+
+- Mailcow PHP owns all browser routes, layout, session checks, CSRF handling and role/domain authorization.
+- The Python code is reduced to an internal engine/API only. It has no public port, no standalone portal, no login page and no managed identity-provider UI.
+- The internal service uses Mailcow's existing MariaDB service and a dedicated schema/table prefix. No PostgreSQL service is deployed.
+- Mailcow's PHP frontend calls only the private engine API. Requests must be authenticated server-to-server; browser-supplied identity headers must never be trusted.
+- Mailcow mailbox/domain records provide identity attributes and scope. Authentik/LDAP provider management from standalone OpenSigWeave is removed from this distribution; Mailcow's configured identity flow remains authoritative.
+- Rspamd calls the same private engine endpoint for signature selection and rendering.
+
+This option preserves the existing Python rule/selection/rendering/sanitization logic better than an immediate full rewrite in PHP, while the user-facing application remains native Mailcow. Before implementation, verify the MariaDB driver and all Alembic migrations against the exact Mailcow MariaDB version. If the migrations or dialect behavior are not safe, implement a dedicated MariaDB persistence adapter rather than forcing incompatible migrations.
+
+### Backup decision
+
+The preferred initial storage option is a dedicated named volume for signature HTML and immutable version snapshots, with explicit additions to both backup and restore handling in `helper-scripts/backup_and_restore.sh`. This keeps the existing filesystem versioning model and makes Mailcow's existing backup command the only backup workflow. The volume must be included in backup selection, restore selection, validation and documentation; adding only the Compose volume is insufficient.
+
 ## Current implementation state
 
 This document records the intended architecture only. No OpenSigWeave application code has been imported or integrated yet.
