@@ -81,9 +81,11 @@ def select_and_record_group_signature(
         )
     else:
         raise RuntimeError(f"Unsupported selection-state database dialect: {dialect}")
-    session.execute(statement.on_conflict_do_nothing(
-        index_elements=[GroupSelectionStateDB.principal_id, GroupSelectionStateDB.group_id]
-    ))
+    if dialect in {"postgresql", "sqlite"}:
+        statement = statement.on_conflict_do_nothing(
+            index_elements=[GroupSelectionStateDB.principal_id, GroupSelectionStateDB.group_id]
+        )
+    session.execute(statement)
     state = session.execute(
         select(GroupSelectionStateDB).where(
             GroupSelectionStateDB.principal_id == principal,
