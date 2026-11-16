@@ -97,6 +97,8 @@ This option preserves the existing Python rule/selection/rendering/sanitization 
 
 The preferred initial storage option is a dedicated named volume for signature HTML and immutable version snapshots, with explicit additions to both backup and restore handling in `helper-scripts/backup_and_restore.sh`. This keeps the existing filesystem versioning model and makes Mailcow's existing backup command the only backup workflow. The volume must be included in backup selection, restore selection, validation and documentation; adding only the Compose volume is insufficient.
 
+The fork now exposes this volume as the `opensigweave` backup component. Run `./helper-scripts/backup_and_restore.sh backup opensigweave` for a signature-only archive; `backup all` includes it automatically. Restore uses the normal interactive `restore` flow and includes the OpenSigWeave signatures component when the archive is present.
+
 ## Source compatibility audit and implementation plan
 
 A detailed source-level compatibility review is maintained in [`OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md`](OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md). The file-level target architecture and implementation order are in [`OPENSIGWEAVE_MAILCOW_IMPLEMENTATION_PLAN.md`](OPENSIGWEAVE_MAILCOW_IMPLEMENTATION_PLAN.md). It confirms that the existing signature catalog, filesystem version store, rule/selection modules, renderer, sanitizer and Rspamd adapter are reusable. It also records the MariaDB driver/schema, headless-startup, private transport, Rspamd loading and backup/restore blockers that must be resolved before runtime integration.
