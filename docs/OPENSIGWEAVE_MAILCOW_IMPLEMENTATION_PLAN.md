@@ -125,4 +125,24 @@ Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `depa
 
 ## 8. Current implementation state
 
-Only documentation has been committed so far. The MariaDB source-level audit is complete, but no engine files, Compose service, PHP adapter, native UI, database migrations or backup changes have been committed. No MariaDB runtime migration has been executed. The next code milestone is the Mailcow-specific persistence namespace and its MariaDB 10.11 test harness, followed by the headless engine proof of concept.
+### Implemented on dev
+
+- Added a Mailcow-specific SQLAlchemy database factory using Mailcow's existing DBNAME, DBUSER and DBPASS values and the existing MariaDB service.
+- Added an isolated persistence model set under the osw_ table namespace.
+- Bounded all VARCHAR fields and kept unbounded HTML/rule content as TEXT.
+- Excluded the standalone LDAP/OIDC provider registry and identity cache from the Mailcow-mode model set.
+- Added an Alembic environment using osw_alembic_version and an initial schema revision.
+- Added static MySQL-dialect schema checks and a GitHub Actions MariaDB 10.11 integration job.
+
+### Not implemented yet
+
+- The HTTP/headless signature engine and its Mailcow-specific request contract.
+- The engine Dockerfile and Compose service.
+- The PHP adapter behind footer.php and the native Mailcow management pages.
+- Extension of Mailcow's existing identity sync for allowlisted AD profile attributes.
+- Signature-volume backup/restore changes.
+- End-to-end SMTP, MIME and DKIM tests.
+
+The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow installation until the complete upgrade and backup procedure has been reviewed.
+
+The CI workflow is intended to execute the migration against a disposable MariaDB 10.11 service. A successful run validates this schema slice only; it does not establish full Mailcow integration or production readiness.
