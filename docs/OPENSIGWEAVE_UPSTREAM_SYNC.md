@@ -6,7 +6,7 @@ The Mailcow integration vendors a deliberately small, provider-neutral part of
 ## Current source baseline
 
 The Mailcow `beta` branch is reviewed against OpenSigWeave `beta`, pinned at
-`29c86d5ba9371e067319867bf93b8ea820c0f71b`. The exact imported revision is recorded in
+`eaa8dde852fdb6c52d21ef6babf430cc1a583cb1`. The exact imported revision is recorded in
 `data/Dockerfiles/opensigweave/UPSTREAM_COMMIT`.
 
 The sync script defaults to this reviewed commit. To test a different
