@@ -108,6 +108,8 @@ jobs:
         run: docker build --tag opensigweave-engine-ci data/Dockerfiles/opensigweave
       - name: Check PHP footer adapter syntax
         run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
+      - name: Check Rspamd Lua syntax
+        run: docker run --rm --volume "$PWD:/src:ro" lua:5.1-alpine luac -p /src/data/conf/rspamd/lua/rspamd.local.lua
       - name: Check new Mailcow administration PHP syntax
         run: |
           docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/web/admin/opensigweave.php
