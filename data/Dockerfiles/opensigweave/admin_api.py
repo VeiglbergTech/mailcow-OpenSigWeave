@@ -19,7 +19,7 @@ from core.slug import slugify
 from signature_sanitizer import sanitize_signature_html
 from signature_storage import SignatureFileStore, SignatureStorageError
 
-KEY = os.environ.get("ENGINE_API_KEY", "")
+KEY = os.environ.get("ADMIN_API_KEY", "")
 if len(KEY) < 32:
     raise RuntimeError("ENGINE_API_KEY must contain at least 32 characters")
 SessionLocal = create_session_factory(create_database_engine())
