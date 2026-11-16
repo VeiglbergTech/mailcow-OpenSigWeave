@@ -83,12 +83,12 @@ The current Mailcow PHP application already has the authenticated PDO connection
 
 The preferred low-duplication option is a **headless internal OpenSigWeave engine**, with a native Mailcow PHP frontend:
 
-- Mailcow PHP owns all browser routes, layout, session checks, CSRF handling and role/domain authorization.
-- The Python code is reduced to an internal engine/API only. It has no public port, no standalone portal, no login page and no managed identity-provider UI.
+- Mailcow PHP owns all browser routes, layout, session checks, CSRF handling and role/domain authorization. The native signature-management UI is still to be implemented.
+- The Python code is reduced to an internal engine/API only. It has no published host port, no standalone portal, no login page and no managed identity-provider UI.
 - The internal service uses Mailcow's existing MariaDB service and a dedicated schema/table prefix. No PostgreSQL service is deployed.
-- Mailcow's PHP frontend calls only the private engine API. Requests must be authenticated server-to-server; browser-supplied identity headers must never be trusted.
-- Mailcow mailbox/domain records provide identity attributes and scope. Authentik/LDAP provider management from standalone OpenSigWeave is removed from this distribution; Mailcow's configured identity flow remains authoritative.
-- Rspamd calls the same private engine endpoint for signature selection and rendering.
+- Mailcow's PHP footer adapter calls only the private engine API. Requests are authenticated server-to-server; browser-supplied identity headers are not trusted.
+- Mailcow's existing LDAP identity sync fetches allowlisted profile attributes in the same paged LDAP search and writes them to the reserved mailbox custom-attributes namespace. No additional LDAP connection is created.
+- Rspamd continues to call Mailcow's existing footer.php endpoint and remains the sole MIME injector. footer.php calls the private engine when explicitly enabled; the native Mailcow footer remains the fallback.
 
 This option preserves the existing Python rule/selection/rendering/sanitization logic better than an immediate full rewrite in PHP, while the user-facing application remains native Mailcow. Before implementation, verify the MariaDB driver and all Alembic migrations against the exact Mailcow MariaDB version. If the migrations or dialect behavior are not safe, implement a dedicated MariaDB persistence adapter rather than forcing incompatible migrations.
 
@@ -100,8 +100,21 @@ The preferred initial storage option is a dedicated named volume for signature H
 
 A detailed source-level compatibility review is maintained in [`OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md`](OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md). The file-level target architecture and implementation order are in [`OPENSIGWEAVE_MAILCOW_IMPLEMENTATION_PLAN.md`](OPENSIGWEAVE_MAILCOW_IMPLEMENTATION_PLAN.md). It confirms that the existing signature catalog, filesystem version store, rule/selection modules, renderer, sanitizer and Rspamd adapter are reusable. It also records the MariaDB driver/schema, headless-startup, private transport, Rspamd loading and backup/restore blockers that must be resolved before runtime integration.
 
-The current standalone Rspamd engine contract is `GET /api/signature/{email}` with the `X-Engine-Key` header. However, Mailcow already has a `MOO_FOOTER` prefilter that retrieves footer JSON through its internal `footer.php` endpoint and performs MIME rewriting itself. The integration should first test extending that existing provider to call the OpenSigWeave engine, rather than introducing a second Rspamd injector. The compatibility audit documents the exact source paths and remaining identity/transport checks.
+The Mailcow-mode engine contract is `POST /internal/signature` with the `X-Engine-Key` header. It explicitly separates `authenticated_user`, `envelope_sender` and Mailcow-resolved `target_domain`. Mailcow's `MOO_FOOTER` prefilter still retrieves footer JSON through its internal `footer.php` endpoint and performs MIME rewriting. The PHP adapter calls the private engine and falls back to the native Mailcow footer when the engine is disabled, unavailable or returns no signature. No second Rspamd MIME injector is installed.
 
 ## Current implementation state
 
-The current `dev` branch contains the Mailcow upstream baseline and integration documentation only. The compatibility audit has been added, but no OpenSigWeave application code, PHP page, engine service, MariaDB migration, Rspamd hook or backup change has been imported or integrated yet.
+The current `dev` branch now contains the first working integration foundation:
+
+- Mailcow-mode MariaDB models and an `osw_` table namespace with an isolated Alembic version table.
+- A private, headless FastAPI engine, built as a non-root Docker image and deployed as an internal Compose service with no published port.
+- MariaDB-compatible variant and group selection repositories, sandboxed rendering, HTML sanitization and versioned signature-file storage.
+- A private API key generated for new installations and provisioned by `update.sh` for existing installations. Signature injection remains disabled by default.
+- A PHP adapter in Mailcow's existing `footer.php` path. The native Mailcow footer remains the fallback and Rspamd remains the only MIME injector.
+- An extension to the existing LDAP identity sync that imports allowlisted AD profile attributes into `mailbox.custom_attributes.opensigweave` through the same LDAP search/connection.
+- Backup and restore support for the persistent signature volume.
+- A pinned upstream sync script for the provider-neutral OpenSigWeave modules.
+
+GitHub Actions currently passes 447 PHP unit tests and 15 Python tests, plus MariaDB migration/selection/profile tests, upstream sync reproducibility, Docker image build, PHP lint, shell lint and Compose validation.
+
+The native Mailcow signature-management UI, role/domain-specific authorization for signature operations, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification are still outstanding. The integration has not been deployed against a live Mailcow instance and must not be enabled in production yet.
