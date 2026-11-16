@@ -181,10 +181,13 @@ def remove_domain(domain_id: int, db: Session = Depends(get_db)):
     signature_reference = db.execute(select(SignatureDomainDB.signature_id).where(
         SignatureDomainDB.domain_id == domain_id
     )).first()
+    legacy_signature_reference = db.execute(select(SignatureDB.id).where(
+        SignatureDB.domain_id == domain_id
+    )).first()
     group_reference = db.execute(select(SignatureGroupDomainDB.group_id).where(
         SignatureGroupDomainDB.domain_id == domain_id
     )).first()
-    if signature_reference or group_reference:
+    if signature_reference or legacy_signature_reference or group_reference:
         raise HTTPException(status_code=409, detail="Domain is still assigned to signatures or groups")
     db.delete(row)
     db.commit()
