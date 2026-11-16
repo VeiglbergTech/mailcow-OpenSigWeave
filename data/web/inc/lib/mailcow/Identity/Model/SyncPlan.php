@@ -30,6 +30,8 @@ class SyncPlan
     public array $updates = [];
     /** @var array<string, array> username => {name, template}: IdP name and legacy mapping of every listed mailbox */
     public array $profiles = [];
+    /** @var array<string, array> username => allowlisted, sync-owned OpenSigWeave profile */
+    public array $profileAttributes = [];
     /** @var array[] {ref, name, domain, mail}: groups to create for IdP groups */
     public array $groupCreates = [];
     /** @var array<int, string> group id => new name */
@@ -54,6 +56,7 @@ class SyncPlan
         foreach (['links' => 'links', 'creates' => 'creates', 'deactivate' => 'deactivate', 'restore' => 'restore',
             'release' => 'release', 'missing' => 'missing', 'found' => 'found', 'updates' => 'updates', 'group_creates' => 'groupCreates',
             'group_renames' => 'groupRenames', 'memberships' => 'memberships', 'orphaned_groups' => 'orphanedGroups',
+            'profile_attribute_updates' => 'profileAttributes',
             'conflicts' => 'conflicts'] as $key => $kind) {
             $summary['counts'][$key] = count($this->$kind);
         }
