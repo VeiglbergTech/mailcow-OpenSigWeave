@@ -1,12 +1,20 @@
 {% extends 'base.twig' %}
 
 {% block content %}
+{% set page_path = is_admin ? '/admin/opensigweave' : '/domainadmin/opensigweave' %}
 <div class="card">
   <div class="card-header">
     <h4 class="mb-0">OpenSigWeave – E-Mail-Signaturen</h4>
   </div>
   <div class="card-body">
-    <p>Verwalte Signaturen für aktive Mailcow-Domains.</p>
+    <p>Signaturen werden direkt in Mailcow verwaltet. Domain- und Benutzerberechtigungen werden serverseitig geprüft.</p>
+
+    {% if success_message %}
+    <div class="alert alert-success" role="status">{{ success_message }}</div>
+    {% endif %}
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert">{{ error_message }}</div>
+    {% endif %}
 
     {% if not has_access %}
     <div class="alert alert-danger" role="alert">
@@ -17,25 +25,184 @@
       Für dieses Konto sind derzeit keine aktiven Mailcow-Domains freigegeben.
     </div>
     {% else %}
-    <div class="table-responsive">
-      <table class="table table-striped table-hover align-middle">
-        <thead>
-          <tr>
-            <th>Mailcow-Domain</th>
-            <th>Status</th>
-            <th>Signaturverwaltung</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for domain in domains %}
-          <tr>
-            <td>{{ domain }}</td>
-            <td><span class="badge bg-success">Aktiv</span></td>
-            <td><span class="text-muted">Domainzugriff eingerichtet – Signatur-Editor folgt als nächster Schritt.</span></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="row g-3">
+      <div class="col-12 col-xl-3">
+        <div class="card h-100">
+          <div class="card-header"><strong>Mailcow-Domains</strong></div>
+          <div class="list-group list-group-flush">
+            {% for domain in domains %}
+            <a href="{{ page_path }}?domain={{ domain|url_encode }}"
+               class="list-group-item list-group-item-action {% if domain == selected_domain %}active{% endif %}">
+              {{ domain }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-9">
+        {% if selected_domain %}
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Signaturen für {{ selected_domain }}</strong>
+            <span class="badge bg-success">Mailcow-Domain aktiv</span>
+          </div>
+          <div class="card-body">
+            {% if signatures is empty %}
+            <p class="text-muted mb-3">Für diese Domain sind noch keine Signaturen angelegt.</p>
+            {% else %}
+            <div class="table-responsive">
+              <table class="table table-striped table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Modus</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for signature in signatures %}
+                  <tr>
+                    <td>{{ signature.name }}</td>
+                    <td>{{ signature.mode }}</td>
+                    <td>{{ signature.latest_version|default('–') }}</td>
+                    <td>
+                      {% if signature.is_active %}
+                      <span class="badge bg-success">Aktiv</span>
+                      {% else %}
+                      <span class="badge bg-secondary">Deaktiviert</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      <a class="btn btn-sm btn-secondary"
+                         href="{{ page_path }}?domain={{ selected_domain|url_encode }}&signature={{ signature.id }}">
+                        Bearbeiten
+                      </a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if selected_signature %}
+        <div class="card mb-3">
+          <div class="card-header">
+            <strong>Signatur bearbeiten: {{ selected_signature.name }}</strong>
+          </div>
+          <div class="card-body">
+            <form method="post" action="{{ page_path }}?domain={{ selected_domain|url_encode }}&signature={{ selected_signature.id }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="domain" value="{{ selected_domain }}">
+              <input type="hidden" name="signature_id" value="{{ selected_signature.id }}">
+              <input type="hidden" name="action" value="save_version">
+              <div class="mb-3">
+                <label class="form-label" for="signature-html">HTML-Inhalt</label>
+                <textarea class="form-control font-monospace" id="signature-html" name="html_content" rows="14" maxlength="65536" required>{{ selected_signature.html_content }}</textarea>
+                <div class="form-text">Maximal 64 KiB. Unsicheres HTML wird vor dem Speichern serverseitig bereinigt.</div>
+              </div>
+              <button type="submit" class="btn btn-primary">Neue Version speichern</button>
+            </form>
+
+            <hr>
+            <form method="post" action="{{ page_path }}?domain={{ selected_domain|url_encode }}&signature={{ selected_signature.id }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="domain" value="{{ selected_domain }}">
+              <input type="hidden" name="signature_id" value="{{ selected_signature.id }}">
+              <input type="hidden" name="action" value="toggle">
+              {% if selected_signature.is_active %}
+              <input type="hidden" name="is_active" value="0">
+              <button type="submit" class="btn btn-outline-warning">Signatur deaktivieren</button>
+              {% else %}
+              <input type="hidden" name="is_active" value="1">
+              <button type="submit" class="btn btn-outline-success">Signatur aktivieren</button>
+              {% endif %}
+            </form>
+
+            {% if versions %}
+            <h5 class="mt-4">Versionsverlauf</h5>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Erstellt</th>
+                    <th>Benutzer</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for version in versions %}
+                  <tr>
+                    <td>{{ version.version_number }}</td>
+                    <td>{% if version.created_at %}{{ version.created_at|date('d.m.Y H:i') }}{% else %}–{% endif %}</td>
+                    <td>{{ version.created_by|default('–') }}</td>
+                    <td class="text-end">
+                      {% if version.id != versions[0].id %}
+                      <form method="post" action="{{ page_path }}?domain={{ selected_domain|url_encode }}&signature={{ selected_signature.id }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="domain" value="{{ selected_domain }}">
+                        <input type="hidden" name="signature_id" value="{{ selected_signature.id }}">
+                        <input type="hidden" name="version_id" value="{{ version.id }}">
+                        <input type="hidden" name="action" value="restore">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Wiederherstellen</button>
+                      </form>
+                      {% else %}
+                      <span class="text-muted">Aktuell</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="card">
+          <div class="card-header"><strong>Neue Signatur anlegen</strong></div>
+          <div class="card-body">
+            <form method="post" action="{{ page_path }}?domain={{ selected_domain|url_encode }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="domain" value="{{ selected_domain }}">
+              <input type="hidden" name="action" value="create">
+              <div class="row g-3">
+                <div class="col-12 col-lg-6">
+                  <label class="form-label" for="signature-name">Signaturname</label>
+                  <input class="form-control" id="signature-name" name="name" maxlength="255" required>
+                </div>
+                <div class="col-12 col-lg-6">
+                  <label class="form-label" for="signature-mode">Signaturmodus</label>
+                  <select class="form-select" id="signature-mode" name="mode">
+                    <option value="AUTO">AUTO</option>
+                    <option value="PROFESSIONAL">PROFESSIONAL</option>
+                    <option value="INTERNAL">INTERNAL</option>
+                    <option value="NONE">NONE</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="new-signature-html">HTML-Inhalt</label>
+                  <textarea class="form-control font-monospace" id="new-signature-html" name="html_content" rows="10" maxlength="65536" required></textarea>
+                  <div class="form-text">Maximal 64 KiB. Unsicheres HTML wird vor dem Speichern serverseitig bereinigt.</div>
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-primary">Signatur anlegen</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">Wähle links eine aktive Mailcow-Domain aus.</div>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
   </div>
