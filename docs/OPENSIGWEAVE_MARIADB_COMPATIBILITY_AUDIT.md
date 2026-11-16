@@ -53,20 +53,38 @@ The engine will connect to the existing `mysql-mailcow` service on the private C
 This is a source-level compatibility audit only. No MariaDB container was started and no migration was executed. The integration must not be marked database-compatible until the automated and real MariaDB tests pass.
 
 
-## Implemented validation milestone
+## Current Mailcow-mode implementation and validation
 
 The Mailcow fork now contains a dedicated SQLAlchemy model set under
 `data/Dockerfiles/opensigweave/`. Application tables use the `osw_` prefix,
 and Alembic uses `osw_alembic_version`. The Mailcow-mode model set intentionally
 omits standalone LDAP/OIDC provider tables and caches.
 
-GitHub Actions run
-[#43844742174](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43844742174)
-successfully executed the initial Alembic migration against a disposable
-MariaDB 10.11.19 service. The run verified that the namespaced tables and
-foreign keys were created and that a second upgrade to head is idempotent.
-All 8 Python tests passed.
+The standalone OpenSigWeave Alembic chain is not copied into Mailcow mode. The
+Mailcow engine starts from its own isolated initial schema revision using the
+Mailcow-specific metadata. The upstream migration 0012 downgrade issue remains
+relevant only if that standalone migration chain is ever imported; it is not
+executed by the current Mailcow engine.
 
-This validates the initial schema bootstrap only. It does not validate
-Mailcow's live database, concurrent upgrades, rollback on a production
-instance, the future engine runtime, or the complete mail flow.
+GitHub Actions run
+[#43848984343](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43848984343)
+successfully validated:
+
+- Initial schema migration against disposable MariaDB 10.11.19.
+- Namespaced tables, bounded string columns and foreign-key isolation.
+- Idempotent Alembic upgrade.
+- MariaDB upsert behavior for per-user variant rotation and group rotation.
+- The MariaDB JSON_SET/JSON_EXTRACT expression used by Mailcow's LDAP profile
+  sync, including preservation of unrelated custom attributes and replacement
+  of the reserved OpenSigWeave namespace.
+- Engine HTTP authentication, sender validation and a MariaDB-backed signature
+  render request.
+
+The full workflow passed 15 Python tests and 447 PHP unit tests, along with
+Docker image build, PHP syntax, shell syntax, pinned upstream source
+synchronization and Compose configuration validation.
+
+This validates the initial Mailcow-mode schema and tested integration slices.
+It does not validate a live Mailcow database, production upgrade/rollback,
+concurrent SMTP load, full MIME/reply handling or final DKIM ordering. No live
+Mailcow database was modified. Signature injection remains disabled by default.
