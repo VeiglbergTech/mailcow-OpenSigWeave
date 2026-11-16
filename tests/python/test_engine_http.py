@@ -2,6 +2,7 @@
 import os
 import sys
 import unittest
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -14,6 +15,7 @@ os.environ.setdefault("DBPASS", "mailcow-test-password")
 os.environ.setdefault("OPENSIGWEAVE_DB_HOST", "127.0.0.1")
 os.environ.setdefault("OPENSIGWEAVE_DB_PORT", "3306")
 os.environ.setdefault("ENGINE_API_KEY", "test-engine-key-that-is-at-least-32-characters-long")
+os.environ.setdefault("SIGNATURE_STORAGE_PATH", str(Path(tempfile.gettempdir()) / "opensigweave-engine-http-tests"))
 
 from fastapi.testclient import TestClient
 from app import app
