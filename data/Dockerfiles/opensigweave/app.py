@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import uuid
+from html.parser import HTMLParser
 from contextlib import contextmanager
 from typing import Any
 
@@ -68,6 +69,64 @@ class SignatureRequest(BaseModel):
     signature_code: str | None = Field(default=None, max_length=4)
 
 
+class _SignaturePlainTextParser(HTMLParser):
+    """Convert sanitized signature HTML into a readable text/plain alternative."""
+
+    _BLOCK_TAGS = {
+        "address", "article", "blockquote", "div", "footer", "h1", "h2",
+        "h3", "h4", "h5", "h6", "header", "li", "ol", "p", "section",
+        "table", "tr", "ul",
+    }
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "head"}:
+            self.skip_depth += 1
+            return
+        if self.skip_depth:
+            return
+        if tag in {"br", "hr"} or tag in self._BLOCK_TAGS:
+            self.parts.append("\n")
+        elif tag in {"td", "th"}:
+            self.parts.append("\t")
+        elif tag == "img":
+            alt = dict(attrs).get("alt")
+            if alt:
+                self.parts.append(alt)
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style", "head"}:
+            self.skip_depth = max(0, self.skip_depth - 1)
+            return
+        if not self.skip_depth and (tag in self._BLOCK_TAGS or tag in {"td", "th"}):
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.skip_depth:
+            self.parts.append(data)
+
+    def text(self) -> str:
+        raw = "".join(self.parts).replace("\r\n", "\n").replace("\r", "\n")
+        lines = [re.sub(r"[ \t]+", " ", line).strip() for line in raw.split("\n")]
+        compact: list[str] = []
+        for line in lines:
+            if line or (compact and compact[-1]):
+                compact.append(line)
+        return "\n".join(compact).strip()
+
+
+def signature_html_to_plain(html: str) -> str:
+    """Produce a plain-text alternative without exposing HTML markup."""
+    parser = _SignaturePlainTextParser()
+    parser.feed(html)
+    parser.close()
+    return parser.text()
+
+
 def get_db():
     with SessionLocal() as session:
         yield session
@@ -128,6 +187,7 @@ def render_mailcow_signature(
 
     empty_response = {
         "html": "",
+        "plain": "",
         "inject_on_replies": bool(domain_obj and domain_obj.inject_on_replies),
         "trim_whitespace": bool(domain_obj.trim_whitespace) if domain_obj else True,
         "strip_device_signatures": bool(domain_obj.strip_device_signatures) if domain_obj else False,
@@ -308,6 +368,7 @@ def render_mailcow_signature(
 
     return {
         "html": rendered,
+        "plain": signature_html_to_plain(rendered),
         "inject_on_replies": domain_obj.inject_on_replies,
         "trim_whitespace": domain_obj.trim_whitespace,
         "strip_device_signatures": domain_obj.strip_device_signatures,
