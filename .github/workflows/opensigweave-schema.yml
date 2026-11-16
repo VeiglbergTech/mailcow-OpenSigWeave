@@ -8,6 +8,7 @@ on:
     paths:
       - "data/Dockerfiles/opensigweave/**"
       - "tests/python/**"
+      - "tests/php/**"
       - "data/Dockerfiles/opensigweave/core/**"
       - "docker-compose.yml"
       - "generate_config.sh"
@@ -60,6 +61,16 @@ jobs:
           python-version: "3.12"
       - name: Install engine database dependencies
         run: python -m pip install -r data/Dockerfiles/opensigweave/requirements.txt
+      - name: Set up PHP for Mailcow identity tests
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer:v2
+          extensions: mbstring, dom, xml, xmlwriter
+      - name: Install Mailcow PHP test dependencies
+        run: composer install --working-dir=tests/php --no-interaction --prefer-dist
+      - name: Run Mailcow PHP unit tests
+        run: tests/php/vendor/bin/phpunit --configuration tests/php/phpunit.xml.dist --testsuite mailcow
       - name: Compile embedded engine
         run: python -m compileall -q data/Dockerfiles/opensigweave tests/python
       - name: Build headless engine image
