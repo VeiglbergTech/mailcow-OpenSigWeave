@@ -92,7 +92,7 @@ Implemented:
 
 Still open:
 
-- Native Mailcow management page with admin-only session authorization, a CSRF-protected PHP gateway, domain and signature management, CKEditor 5, weighted variants, and initial group/rule creation and deletion UI.
+- Native Mailcow management page with admin-only session authorization, a CSRF-protected PHP gateway, domain and signature management, CKEditor 5, weighted variants, and group/rule creation, editing and deletion UI.
 - Full editing workflows for groups and rules, per-member weight editing, domain-admin delegation and dedicated management regression tests remain open.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification of trim-whitespace/device-signature policies and final DKIM
