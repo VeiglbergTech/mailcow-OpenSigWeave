@@ -24,7 +24,7 @@ remain reproducible.
 - `core/modes.py`
 - `core/rules.py`
 - `core/variant_selector.py`
-- `core/rule_repository.py`
+- `core/rule_repository.py, `core/slug.py``
 - `signature_renderer.py`
 - `signature_sanitizer.py`
 - `signature_storage.py`
