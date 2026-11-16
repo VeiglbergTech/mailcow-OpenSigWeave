@@ -173,6 +173,24 @@ def edit_domain(domain_id: int, payload: DomainInput, db: Session = Depends(get_
     return domain_json(row)
 
 
+@router.delete("/domains/{domain_id}", dependencies=[Depends(require_key)])
+def remove_domain(domain_id: int, db: Session = Depends(get_db)):
+    row = db.get(DomainDB, domain_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    signature_reference = db.execute(select(SignatureDomainDB.signature_id).where(
+        SignatureDomainDB.domain_id == domain_id
+    )).first()
+    group_reference = db.execute(select(SignatureGroupDomainDB.group_id).where(
+        SignatureGroupDomainDB.domain_id == domain_id
+    )).first()
+    if signature_reference or group_reference:
+        raise HTTPException(status_code=409, detail="Domain is still assigned to signatures or groups")
+    db.delete(row)
+    db.commit()
+    return {"deleted": domain_id}
+
+
 @router.post("/signatures", dependencies=[Depends(require_key)])
 def add_signature(payload: SignatureInput, db: Session = Depends(get_db)):
     name = payload.name.strip()
