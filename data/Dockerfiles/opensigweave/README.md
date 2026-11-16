@@ -81,6 +81,7 @@ Implemented:
   authenticated mailbox distinct from the SMTP envelope sender and target
   domain.
 - Private Compose service with no published port.
+- Separate administration key: only PHP-FPM and the engine receive the admin API secret; the mail-rendering key is not accepted for management operations.
 - Existing LDAP identity sync extended to map allowlisted AD profile fields into
   the reserved OpenSigWeave custom-attributes namespace; unrelated
   `custom_attributes` keys are preserved. The reserved namespace is sync-owned:
