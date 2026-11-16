@@ -96,7 +96,7 @@ Implemented:
 
 Still open:
 
-- Per-member weight editing in the browser UI (currently a shared weight can be applied to selected group members).
+- Per-member weights are editable independently in the group editor.
 - Domain-admin delegation and broader management regression coverage.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification of trim-whitespace/device-signature policies and final DKIM behavior in a real Mailcow test installation.
