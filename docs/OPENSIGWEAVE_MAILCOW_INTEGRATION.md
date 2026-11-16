@@ -125,3 +125,5 @@ A first native Mailcow UI entry point now exists for administrators and domain a
 OpenSigWeave uses a dedicated Mailcow domain-administrator ACL flag named `opensigweave`. It is stored in the existing `da_acl` table and defaults to disabled for existing and newly created domain administrators. A Mailcow administrator must explicitly grant this permission in the normal domain-administrator edit dialog.
 
 The application still enforces domain scope independently: the permission only enables the module; it does not grant access to domains that are not actively assigned to the domain administrator. Inactive Mailcow domains and inactive domain assignments are excluded. Administrators retain access to all active Mailcow domains. Mailbox users cannot manage signatures.
+
+For existing installations, the Mailcow `DB_VERSION` was advanced from `02112026_1600` to `16112026_1237`. This invokes Mailcow's normal schema reconciliation so the new `da_acl.opensigweave` column is added with default `0`; new installations create it directly from the schema definition. The migration does not grant the permission to existing domain administrators.
