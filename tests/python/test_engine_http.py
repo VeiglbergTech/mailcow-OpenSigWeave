@@ -190,6 +190,8 @@ class EngineHttpBoundaryTests(unittest.TestCase):
             payload = response.json()
             self.assertIn("&lt;Ada&gt;", payload["html"])
             self.assertIn("+49 123 456", payload["html"])
+            self.assertIn("Ada", payload["plain"])
+            self.assertIn("+49 123 456", payload["plain"])
             self.assertFalse(payload["inject_on_replies"])
         finally:
             with SessionLocal() as session:
