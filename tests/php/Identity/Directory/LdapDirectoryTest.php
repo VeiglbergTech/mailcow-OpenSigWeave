@@ -42,6 +42,46 @@ class LdapDirectoryTest extends TestCase
         $this->assertSame('(&(objectClass=person)(mail=*))', $directory->searches[1][1]);
     }
 
+
+    public function testAllowlistedProfileAttributesUseTheExistingPagedUserSearch(): void
+    {
+        $directory = new FakeLdapDirectory(['basedn' => self::BASE, 'filter' => '(objectClass=person)'],
+            function (string $base, string $filter, array $attributes): array {
+                foreach (['givenname', 'sn', 'title', 'telephonenumber', 'mobile', 'department', 'displayname'] as $attribute) {
+                    $this->assertContains($attribute, $attributes);
+                }
+                return [self::entry('cn=ada,dc=example,dc=org', [
+                    'mail' => 'ada@example.org',
+                    'entryuuid' => 'ada-1',
+                    'displayname' => 'Ada Lovelace',
+                    'givenname' => 'Ada',
+                    'sn' => 'Lovelace',
+                    'title' => 'Engineer',
+                    'telephonenumber' => '+49 123',
+                    'mobile' => '+49 456',
+                    'department' => 'Research',
+                ])];
+            });
+
+        $user = $directory->listAll(false)->users['ada-1'];
+
+        $this->assertSame([
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'title' => 'Engineer',
+            'phone' => '+49 123',
+            'attributes' => [
+                'displayname' => 'Ada Lovelace',
+                'givenname' => 'Ada',
+                'sn' => 'Lovelace',
+                'title' => 'Engineer',
+                'telephonenumber' => '+49 123',
+                'mobile' => '+49 456',
+                'department' => 'Research',
+            ],
+        ], $user->profileAttributes);
+    }
+
     public function testConfiguredIdAttributeWins(): void
     {
         $entry = self::entry('cn=a,dc=example,dc=org', ['employeenumber' => 'E-17', 'entryuuid' => 'x']);
