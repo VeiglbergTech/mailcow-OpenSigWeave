@@ -18,6 +18,53 @@ class SyncPlannerTest extends TestCase
 {
     private const SINCE = '2026-10-25 10:00:00';
 
+
+    public function testLdapProfileAttributesArePlannedForExistingMailboxEvenWithoutLegacyTemplateSync(): void
+    {
+        $profile = [
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'title' => 'Engineer',
+            'phone' => '+49 123',
+            'attributes' => ['department' => 'Research'],
+        ];
+        $plan = $this->plan(
+            [self::user('guid-1', 'ada@example.org', true, [], 'Ada Lovelace', $profile)],
+            [new Account('ada@example.org', 'Ada Lovelace', 1, 'guid-1')],
+            ['authsource' => 'ldap', 'periodic_sync' => 0]
+        );
+
+        $this->assertSame([
+            'principal_id' => 'ldap:guid-1',
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'title' => 'Engineer',
+            'phone' => '+49 123',
+            'groups' => [],
+            'claims' => [],
+            'attributes' => ['department' => 'Research'],
+        ], $plan->profileAttributes['ada@example.org']);
+    }
+
+    public function testNewLdapMailboxCarriesItsProfileForPersistenceAfterCreation(): void
+    {
+        $profile = [
+            'first_name' => 'Ada',
+            'last_name' => 'Lovelace',
+            'title' => 'Engineer',
+            'phone' => '+49 123',
+            'attributes' => ['department' => 'Research'],
+        ];
+        $plan = $this->plan(
+            [self::user('guid-1', 'ada@example.org', true, [], 'Ada Lovelace', $profile)],
+            [],
+            ['authsource' => 'ldap', 'default_template' => 'Default']
+        );
+
+        $this->assertSame('ldap:guid-1', $plan->creates[0]['profile_attributes']['principal_id']);
+        $this->assertSame('Research', $plan->creates[0]['profile_attributes']['attributes']['department']);
+    }
+
     public function testUnlinkedMailboxIsAdoptedByEmail(): void
     {
         $plan = $this->plan([self::user('u1', 'a@example.org')], [new Account('a@example.org', 'A', 1)]);
@@ -262,9 +309,9 @@ class SyncPlannerTest extends TestCase
             $force);
     }
 
-    private static function user(string $id, ?string $email, bool $enabled = true, array $templates = [], string $name = ''): DirectoryUser
+    private static function user(string $id, ?string $email, bool $enabled = true, array $templates = [], string $name = '', array $profileAttributes = []): DirectoryUser
     {
-        return new DirectoryUser($id, $email, $name, $enabled, $templates);
+        return new DirectoryUser($id, $email, $name, $enabled, $templates, '', $profileAttributes);
     }
 
     private static function group(int $id, ?string $ref, string $name, array $members, ?string $template = null, int $priority = 0): array
