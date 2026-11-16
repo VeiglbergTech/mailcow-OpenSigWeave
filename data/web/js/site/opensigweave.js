@@ -1,181 +1,306 @@
 (function () {
   'use strict';
-  const byId = (id) => document.getElementById(id);
-  let catalog = { domains: [], signatures: [] };
-  let editor = null;
-  let modal = null;
+  var catalog = { domains: [], signatures: [], groups: [], rules: [] };
+  var editor = null;
+  var signatureModal;
+  var groupModal;
+  var ruleModal;
+  var $ = function (id) { return document.getElementById(id); };
 
-  function alertMessage(message, type) {
-    const node = byId('osw-alert');
-    node.className = 'alert alert-' + (type || 'info');
-    node.textContent = message;
-    node.classList.remove('d-none');
+  function node(tag, cls, value) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (value !== undefined) el.textContent = value;
+    return el;
+  }
+
+  function notify(message, type) {
+    var el = $('osw-alert');
+    el.className = 'alert alert-' + (type || 'info');
+    el.textContent = message;
+    el.classList.remove('d-none');
   }
 
   async function api(method, path, payload) {
-    const response = await fetch('/inc/ajax/opensigweave.php', {
+    var response = await fetch('/inc/ajax/opensigweave.php', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': oswCsrfToken },
-      body: JSON.stringify({ method, path, payload: payload || {} })
+      body: JSON.stringify({ method: method, path: path, payload: payload || {} })
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.detail || 'OpenSigWeave request failed (' + response.status + ')');
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(data.detail || ('Request failed: ' + response.status));
     return data;
   }
 
-  function element(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined) node.textContent = text;
-    return node;
+  function fillSelect(id, values, labelKey, valueKey) {
+    var select = $(id);
+    select.replaceChildren();
+    values.forEach(function (item) {
+      var option = node('option', '', item[labelKey]);
+      option.value = String(item[valueKey]);
+      select.append(option);
+    });
+  }
+
+  function selectedValues(id) {
+    return Array.from($(id).selectedOptions).map(function (option) { return option.value; });
   }
 
   function renderDomains() {
-    const root = byId('osw-domains');
+    var root = $('osw-domains');
     root.replaceChildren();
     if (!catalog.domains.length) {
-      root.append(element('div', 'text-muted', 'Noch keine Domains konfiguriert.'));
+      root.append(node('div', 'text-muted', 'Noch keine Domains konfiguriert.'));
       return;
     }
-    catalog.domains.forEach((domain) => {
-      const row = element('div', 'osw-domain-row');
-      const name = element('strong', '', domain.domain_name);
-      const status = element('span', domain.is_active ? 'badge text-bg-success' : 'badge text-bg-secondary',
-        domain.is_active ? 'Aktiv' : 'Inaktiv');
-      row.append(name, status);
+    catalog.domains.forEach(function (domain) {
+      var row = node('div', 'osw-domain-row');
+      row.append(node('strong', '', domain.domain_name));
+      row.append(node('span', domain.is_active ? 'badge text-bg-success' : 'badge text-bg-secondary',
+        domain.is_active ? 'Aktiv' : 'Inaktiv'));
       root.append(row);
     });
   }
 
   function renderSignatures() {
-    const root = byId('osw-signatures');
+    var root = $('osw-signatures');
     root.replaceChildren();
-    byId('osw-signature-count').textContent = String(catalog.signatures.length);
+    $('osw-signature-count').textContent = String(catalog.signatures.length);
     if (!catalog.signatures.length) {
-      const tr = element('tr');
-      const td = element('td', 'text-muted text-center py-4', 'Noch keine Signaturen angelegt.');
-      td.colSpan = 5;
-      tr.append(td);
-      root.append(tr);
+      var empty = node('tr');
+      var cell = node('td', 'text-muted text-center py-4', 'Noch keine Signaturen angelegt.');
+      cell.colSpan = 5;
+      empty.append(cell);
+      root.append(empty);
       return;
     }
-    catalog.signatures.forEach((signature) => {
-      const tr = element('tr');
-      tr.append(element('td', 'fw-semibold', signature.name));
-      tr.append(element('td', '', signature.mode));
-      tr.append(element('td', 'text-muted small', signature.domains.length ? signature.domains.join(', ') : 'Global'));
-      tr.append(element('td', '', signature.is_active ? 'Aktiv' : 'Deaktiviert'));
-      const actions = element('td', 'text-end');
-      const edit = element('button', 'btn btn-sm btn-outline-light me-2', 'Bearbeiten');
+    catalog.signatures.forEach(function (signature) {
+      var row = node('tr');
+      row.append(node('td', 'fw-semibold', signature.name));
+      row.append(node('td', '', signature.mode + ' · Gewicht ' + signature.weight));
+      row.append(node('td', 'text-muted small', signature.domains.length ? signature.domains.join(', ') : 'Global'));
+      row.append(node('td', '', signature.is_active ? 'Aktiv' : 'Deaktiviert'));
+      var actions = node('td', 'text-end');
+      var edit = node('button', 'btn btn-sm btn-outline-light me-2', 'Bearbeiten');
       edit.type = 'button';
-      edit.addEventListener('click', () => openEditor(signature));
-      const remove = element('button', 'btn btn-sm btn-outline-danger', 'Löschen');
+      edit.addEventListener('click', function () { openSignature(signature); });
+      var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
       remove.type = 'button';
-      remove.addEventListener('click', () => deleteSignature(signature));
+      remove.addEventListener('click', function () { deleteSignature(signature); });
       actions.append(edit, remove);
-      tr.append(actions);
-      root.append(tr);
+      row.append(actions);
+      root.append(row);
+    });
+  }
+
+  function renderGroups() {
+    var root = $('osw-groups');
+    root.replaceChildren();
+    if (!catalog.groups.length) {
+      root.append(node('div', 'text-muted', 'Noch keine Gruppen angelegt.'));
+      return;
+    }
+    catalog.groups.forEach(function (group) {
+      var row = node('div', 'osw-domain-row');
+      var info = node('div');
+      info.append(node('strong', '', group.name));
+      info.append(node('div', 'small text-muted', group.members.length + ' Signaturen · ' +
+        (group.domains.length ? group.domains.join(', ') : 'alle Domains')));
+      var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
+      remove.type = 'button';
+      remove.addEventListener('click', async function () {
+        if (!window.confirm('Gruppe "' + group.name + '" löschen?')) return;
+        try { await api('DELETE', '/admin/groups/' + group.id); await refresh(); notify('Gruppe gelöscht.', 'success'); }
+        catch (error) { notify(error.message, 'danger'); }
+      });
+      row.append(info, remove);
+      root.append(row);
+    });
+  }
+
+  function renderRules() {
+    var root = $('osw-rules');
+    root.replaceChildren();
+    if (!catalog.rules.length) {
+      root.append(node('div', 'text-muted', 'Noch keine Regeln angelegt.'));
+      return;
+    }
+    catalog.rules.forEach(function (rule) {
+      var row = node('div', 'osw-domain-row');
+      var info = node('div');
+      info.append(node('strong', '', rule.name));
+      info.append(node('div', 'small text-muted', 'Priorität ' + rule.priority + ' · ' +
+        rule.action_mode + ' · ' + rule.conditions.length + ' Bedingungen'));
+      var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
+      remove.type = 'button';
+      remove.addEventListener('click', async function () {
+        if (!window.confirm('Regel "' + rule.name + '" löschen?')) return;
+        try { await api('DELETE', '/admin/rules/' + rule.id); await refresh(); notify('Regel gelöscht.', 'success'); }
+        catch (error) { notify(error.message, 'danger'); }
+      });
+      row.append(info, remove);
+      root.append(row);
     });
   }
 
   async function refresh() {
     try {
-      catalog = await api('GET', '/admin/catalog');
+      var results = await Promise.all([
+        api('GET', '/admin/catalog'),
+        api('GET', '/admin/groups'),
+        api('GET', '/admin/rules')
+      ]);
+      catalog = { domains: results[0].domains, signatures: results[0].signatures,
+        groups: results[1], rules: results[2] };
       renderDomains();
       renderSignatures();
+      renderGroups();
+      renderRules();
     } catch (error) {
-      alertMessage(error.message, 'danger');
+      notify(error.message, 'danger');
     }
   }
 
-  function renderDomainOptions(selectedNames) {
-    const select = byId('osw-signature-domains');
-    select.replaceChildren();
-    catalog.domains.forEach((domain) => {
-      const option = element('option', '', domain.domain_name);
+  function openSignature(signature) {
+    $('osw-signature-id').value = signature ? signature.id : '';
+    $('osw-modal-title').textContent = signature ? 'Signatur bearbeiten' : 'Neue Signatur';
+    $('osw-signature-name').value = signature ? signature.name : '';
+    $('osw-signature-mode').value = signature ? signature.mode : 'AUTO';
+    $('osw-signature-weight').value = signature ? signature.weight : 1;
+    var domainSelect = $('osw-signature-domains');
+    domainSelect.replaceChildren();
+    catalog.domains.forEach(function (domain) {
+      var option = node('option', '', domain.domain_name);
       option.value = String(domain.id);
-      option.selected = selectedNames.includes(domain.domain_name);
-      select.append(option);
+      option.selected = !!signature && signature.domains.indexOf(domain.domain_name) !== -1;
+      domainSelect.append(option);
     });
-  }
-
-  function selectedDomainIds() {
-    return Array.from(byId('osw-signature-domains').selectedOptions).map((option) => Number(option.value));
-  }
-
-  function openEditor(signature) {
-    byId('osw-signature-id').value = signature ? signature.id : '';
-    byId('osw-modal-title').textContent = signature ? 'Signatur bearbeiten' : 'Neue Signatur';
-    byId('osw-signature-name').value = signature ? signature.name : '';
-    byId('osw-signature-mode').value = signature ? signature.mode : 'AUTO';
-    renderDomainOptions(signature ? signature.domains : []);
-    if (editor) editor.setData(signature ? signature.html_content : '<table><tbody><tr><td>{{ first_name }} {{ last_name }}</td></tr><tr><td>{{ title }}</td></tr><tr><td>{{ phone }}</td></tr><tr><td>{{ email }}</td></tr></tbody></table>');
-    modal.show();
-  }
-
-  async function deleteSignature(signature) {
-    if (!window.confirm('Signatur „' + signature.name + '“ wirklich löschen?')) return;
-    try {
-      await api('DELETE', '/admin/signatures/' + signature.id);
-      alertMessage('Signatur wurde gelöscht.', 'success');
-      await refresh();
-    } catch (error) {
-      alertMessage(error.message, 'danger');
+    if (editor) {
+      editor.setData(signature ? signature.html_content :
+        '<table><tbody><tr><td>{{ first_name }} {{ last_name }}</td></tr><tr><td>{{ title }}</td></tr><tr><td>{{ phone }}</td></tr><tr><td>{{ email }}</td></tr></tbody></table>');
     }
+    signatureModal.show();
   }
 
   async function saveSignature() {
-    const id = byId('osw-signature-id').value;
-    const payload = {
-      name: byId('osw-signature-name').value.trim(),
-      mode: byId('osw-signature-mode').value,
-      domain_ids: selectedDomainIds(),
+    var id = $('osw-signature-id').value;
+    var payload = {
+      name: $('osw-signature-name').value.trim(),
+      mode: $('osw-signature-mode').value,
+      weight: Math.max(1, Number($('osw-signature-weight').value) || 1),
+      domain_ids: Array.from($('osw-signature-domains').selectedOptions).map(function (o) { return Number(o.value); }),
       html_content: editor ? editor.getData() : ''
     };
-    if (!payload.name) {
-      alertMessage('Bitte einen Signaturnamen eingeben.', 'warning');
-      return;
-    }
-    const button = byId('osw-save-signature');
+    if (!payload.name) { notify('Bitte einen Signaturnamen eingeben.', 'warning'); return; }
+    var button = $('osw-save-signature');
     button.disabled = true;
     try {
       await api(id ? 'PUT' : 'POST', id ? '/admin/signatures/' + id : '/admin/signatures', payload);
-      modal.hide();
-      alertMessage('Signatur wurde gespeichert.', 'success');
+      signatureModal.hide();
       await refresh();
-    } catch (error) {
-      alertMessage(error.message, 'danger');
-    } finally {
-      button.disabled = false;
-    }
+      notify('Signatur gespeichert.', 'success');
+    } catch (error) { notify(error.message, 'danger'); }
+    finally { button.disabled = false; }
   }
 
-  async function addDomain() {
-    const name = window.prompt('Domainname, z. B. example.org:');
-    if (!name) return;
+  async function deleteSignature(signature) {
+    if (!window.confirm('Signatur "' + signature.name + '" wirklich löschen?')) return;
     try {
-      await api('POST', '/admin/domains', { domain_name: name.trim() });
-      alertMessage('Domain wurde hinzugefügt.', 'success');
+      await api('DELETE', '/admin/signatures/' + signature.id);
       await refresh();
-    } catch (error) {
-      alertMessage(error.message, 'danger');
-    }
+      notify('Signatur gelöscht.', 'success');
+    } catch (error) { notify(error.message, 'danger'); }
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    modal = new bootstrap.Modal(byId('osw-signature-modal'));
+  async function saveGroup() {
+    var payload = {
+      name: $('osw-group-name').value.trim(),
+      domain_ids: selectedValues('osw-group-domains').map(Number),
+      members: selectedValues('osw-group-members').map(function (id) {
+        return { signature_id: id, weight: 1, is_enabled: true };
+      })
+    };
+    if (!payload.name || !payload.members.length) {
+      notify('Bitte einen Gruppennamen und mindestens eine Signatur auswählen.', 'warning');
+      return;
+    }
     try {
-      editor = await ClassicEditor.create(byId('osw-signature-html'), {
+      await api('POST', '/admin/groups', payload);
+      groupModal.hide();
+      await refresh();
+      notify('Gruppe gespeichert.', 'success');
+    } catch (error) { notify(error.message, 'danger'); }
+  }
+
+  async function saveRule() {
+    var action = $('osw-rule-action').value;
+    var condition = $('osw-rule-condition').value;
+    var value = $('osw-rule-value').value.trim();
+    var payload = {
+      name: $('osw-rule-name').value.trim(),
+      priority: Number($('osw-rule-priority').value) || 0,
+      action_mode: action,
+      signature_id: $('osw-rule-signature').value || null,
+      group_id: action === 'GROUP' ? ($('osw-rule-group').value || null) : null,
+      is_enabled: true,
+      conditions: condition && value ? [{ kind: condition, key: $('osw-rule-key').value.trim(), value: value }] : []
+    };
+    if (!payload.name || (action === 'GROUP' && !payload.group_id) || (condition && !value)) {
+      notify('Bitte Regelname, Gruppenaktion und Bedingungswert prüfen.', 'warning');
+      return;
+    }
+    try {
+      await api('POST', '/admin/rules', payload);
+      ruleModal.hide();
+      await refresh();
+      notify('Regel gespeichert.', 'success');
+    } catch (error) { notify(error.message, 'danger'); }
+  }
+
+  function openGroup() {
+    $('osw-group-name').value = '';
+    fillSelect('osw-group-members', catalog.signatures, 'name', 'id');
+    fillSelect('osw-group-domains', catalog.domains, 'domain_name', 'id');
+    groupModal.show();
+  }
+
+  function openRule() {
+    $('osw-rule-name').value = '';
+    $('osw-rule-priority').value = '0';
+    $('osw-rule-action').value = 'AUTO';
+    $('osw-rule-condition').value = '';
+    $('osw-rule-key').value = '';
+    $('osw-rule-value').value = '';
+    fillSelect('osw-rule-signature', [{ id: '', name: 'Keine' }].concat(catalog.signatures), 'name', 'id');
+    fillSelect('osw-rule-group', [{ id: '', name: 'Bitte auswählen' }].concat(catalog.groups), 'name', 'id');
+    ruleModal.show();
+  }
+
+  document.addEventListener('DOMContentLoaded', async function () {
+    signatureModal = new bootstrap.Modal($('osw-signature-modal'));
+    groupModal = new bootstrap.Modal($('osw-group-modal'));
+    ruleModal = new bootstrap.Modal($('osw-rule-modal'));
+    try {
+      editor = await ClassicEditor.create($('osw-signature-html'), {
         toolbar: ['undo', 'redo', '|', 'heading', 'bold', 'italic', '|', 'link', 'bulletedList', 'numberedList', '|', 'insertTable', 'blockQuote']
       });
     } catch (error) {
-      alertMessage('CKEditor 5 konnte nicht geladen werden: ' + error.message, 'danger');
+      notify('CKEditor 5 konnte nicht geladen werden: ' + error.message, 'danger');
     }
-    byId('osw-refresh').addEventListener('click', refresh);
-    byId('osw-new-signature').addEventListener('click', () => openEditor(null));
-    byId('osw-new-domain').addEventListener('click', addDomain);
-    byId('osw-save-signature').addEventListener('click', saveSignature);
+    $('osw-refresh').addEventListener('click', refresh);
+    $('osw-new-signature').addEventListener('click', function () { openSignature(null); });
+    $('osw-new-domain').addEventListener('click', async function () {
+      var name = window.prompt('Domainname, z. B. example.org:');
+      if (!name) return;
+      try { await api('POST', '/admin/domains', { domain_name: name.trim() }); await refresh(); notify('Domain hinzugefügt.', 'success'); }
+      catch (error) { notify(error.message, 'danger'); }
+    });
+    $('osw-save-signature').addEventListener('click', saveSignature);
+    $('osw-new-group').addEventListener('click', openGroup);
+    $('osw-save-group').addEventListener('click', saveGroup);
+    $('osw-new-rule').addEventListener('click', openRule);
+    $('osw-save-rule').addEventListener('click', saveRule);
     await refresh();
   });
 })();
