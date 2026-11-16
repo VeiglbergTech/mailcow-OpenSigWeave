@@ -8,6 +8,7 @@ on:
     paths:
       - "data/Dockerfiles/opensigweave/**"
       - "tests/python/**"
+      - "data/Dockerfiles/opensigweave/core/**"
       - ".github/workflows/opensigweave-schema.yml"
   pull_request:
     branches:
