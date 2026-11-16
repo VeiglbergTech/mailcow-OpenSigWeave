@@ -218,7 +218,7 @@
       name: $('osw-group-name').value.trim(),
       domain_ids: selectedValues('osw-group-domains').map(Number),
       members: selectedValues('osw-group-members').map(function (id) {
-        return { signature_id: id, weight: 1, is_enabled: true };
+        return { signature_id: id, weight: Math.max(1, Number($('osw-group-weight').value) || 1), is_enabled: true };
       })
     };
     if (!payload.name || !payload.members.length) {
@@ -260,6 +260,7 @@
 
   function openGroup() {
     $('osw-group-name').value = '';
+    $('osw-group-weight').value = '1';
     fillSelect('osw-group-members', catalog.signatures, 'name', 'id');
     fillSelect('osw-group-domains', catalog.domains, 'domain_name', 'id');
     groupModal.show();
