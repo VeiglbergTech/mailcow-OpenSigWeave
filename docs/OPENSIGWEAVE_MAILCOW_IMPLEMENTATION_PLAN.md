@@ -145,7 +145,9 @@ This mapping currently applies to Mailcow's LDAP identity provider. Keycloak syn
 - Extended Mailcow's existing PHP footer endpoint to call the engine only when explicitly enabled. The existing Mailcow footer remains the fallback, and Rspamd remains the only MIME injector.
 - Added backup/restore handling for the persistent signature volume.
 - Extended the existing LDAP identity sync to request an explicit allowlist (displayName, givenName, sn, title, telephoneNumber, mobile, department) in its existing paged LDAP search and persist normalized profile values into mailbox.custom_attributes.opensigweave. No additional LDAP connection or bind is created. Unrelated custom_attributes keys are preserved; the reserved OpenSigWeave namespace is sync-owned and missing source values are cleared on the next successful sync.
-- Added GitHub Actions checks for MariaDB schema and selection, engine HTTP boundary, Docker image build, PHP syntax, 447 Mailcow PHP unit tests, shell syntax and Compose configuration.
+- Added a pinned upstream synchronization script for the provider-neutral modules; the MariaDB-specific selection repositories remain deliberate three-way merges.
+- Added a MariaDB JSON namespace test proving that LDAP profile updates preserve unrelated mailbox custom attributes and replace only the sync-owned OpenSigWeave namespace.
+- Added GitHub Actions checks for pinned upstream synchronization, MariaDB schema and selection, MariaDB JSON profile persistence, engine HTTP boundary, Docker image build, PHP syntax, 447 Mailcow PHP unit tests, shell syntax and Compose configuration.
 
 ### Not implemented yet
 
@@ -156,6 +158,6 @@ This mapping currently applies to Mailcow's LDAP identity provider. Keycloak syn
 
 The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow database until the complete integration and backup procedure have been reviewed.
 
-The MariaDB schema and selection test run [#43846026542](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43846026542) passed 13 Python tests. The full integration CI run [#43847734035](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43847734035) passed 447 PHP tests and 14 Python tests, as well as Docker image build, PHP lint and shell lint. Compose validation was added after that run and is being checked separately.
+The full integration CI run [#43848984343](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43848984343) passed 447 PHP tests and 15 Python tests. It also passed the pinned upstream sync reproducibility check, Docker image build, PHP lint, shell lint, complete Compose configuration validation and MariaDB migration/selection/profile tests.
 
 Signature injection is disabled by default. The integration is not production-ready until the native management UI and real SMTP/DKIM tests are complete.
