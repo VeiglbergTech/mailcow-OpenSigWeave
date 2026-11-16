@@ -57,6 +57,10 @@ connection or bind. The existing footer reads this namespace at send time.
   `OPENSIGWEAVE_ENABLED=y` in `mailcow.conf` only after the remaining
   operational and SMTP/DKIM checks are complete.
 
+## Upstream updates
+
+The provider-neutral source baseline is pinned in `UPSTREAM_COMMIT`. Use `bash scripts/sync-opensigweave-core.sh` to refresh the curated modules from a reviewed upstream commit. The MariaDB-specific selection repositories are deliberately merged manually. See [the upstream sync procedure](../../../docs/OPENSIGWEAVE_UPSTREAM_SYNC.md).
+
 ## Image
 
 The Dockerfile builds a non-root runtime. Its entrypoint initializes ownership
