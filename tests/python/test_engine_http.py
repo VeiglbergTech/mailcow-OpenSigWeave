@@ -277,6 +277,31 @@ class EngineHttpBoundaryTests(unittest.TestCase):
                     {"domain": domain_name},
                 )
 
+    def test_signature_management_rejects_utf8_html_over_byte_limit(self):
+        domain_name = f"manage-large-{os.getpid()}-{id(self)}.example.test"
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(
+                text("INSERT INTO domain (domain, active) VALUES (:domain, 1)"),
+                {"domain": domain_name},
+            )
+        try:
+            response = self.client.post(
+                f"/internal/admin/domains/{domain_name}/signatures",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "name": "Large UTF-8 signature",
+                    "mode": "AUTO",
+                    "html_content": "<p>" + ("ä" * 40000) + "</p>",
+                },
+            )
+            self.assertEqual(response.status_code, 422)
+        finally:
+            with DATABASE_ENGINE.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM domain WHERE domain = :domain"),
+                    {"domain": domain_name},
+                )
+
     def test_signature_management_rejects_inactive_mailcow_domains(self):
         domain_name = f"manage-inactive-{os.getpid()}-{id(self)}.example.test"
         with DATABASE_ENGINE.begin() as connection:
