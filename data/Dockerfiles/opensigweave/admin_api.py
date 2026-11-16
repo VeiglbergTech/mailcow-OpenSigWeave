@@ -21,7 +21,7 @@ from signature_storage import SignatureFileStore, SignatureStorageError
 
 KEY = os.environ.get("ADMIN_API_KEY", "")
 if len(KEY) < 32:
-    raise RuntimeError("ENGINE_API_KEY must contain at least 32 characters")
+    raise RuntimeError("ADMIN_API_KEY must contain at least 32 characters")
 SessionLocal = create_session_factory(create_database_engine())
 storage = SignatureFileStore(os.environ.get("SIGNATURE_STORAGE_PATH", "/var/lib/opensigweave"))
 router = APIRouter(prefix="/admin", tags=["private-admin"])
@@ -33,8 +33,8 @@ def get_db():
         yield session
 
 
-def require_key(x_engine_key: str | None = Header(default=None, alias="X-Admin-Key")):
-    if not hmac.compare_digest(x_engine_key or "", KEY):
+def require_key(x_admin_key: str | None = Header(default=None, alias="X-Admin-Key")):
+    if not hmac.compare_digest(x_admin_key or "", KEY):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
