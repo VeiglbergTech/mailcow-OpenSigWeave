@@ -373,6 +373,11 @@ class SignatureAdminVersionRequest(BaseModel):
     created_by: str | None = Field(default=None, max_length=254)
 
 
+class SignatureAdminPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    html_content: str = Field(min_length=1, max_length=65536)
+
+
 class SignatureAdminUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     is_active: bool
@@ -761,3 +766,37 @@ def restore_domain_signature_version(
     html_content = read_signature(signature, historical)
     version = create_signature_version(db, signature, html_content, None)
     return signature_version_payload(version)
+
+
+
+@app.post(
+    "/internal/admin/domains/{domain}/preview",
+    dependencies=[Depends(require_engine_key)],
+)
+def preview_domain_signature(
+    domain: str,
+    request: SignatureAdminPreviewRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    response.headers["Cache-Control"] = "no-store, private"
+    domain = normalize_admin_domain(domain)
+    require_active_mailcow_domain(db, domain)
+    try:
+        raw_template = sanitize_admin_html(request.html_content)
+        raw_template, group_slots = prepare_group_placeholders(raw_template)
+        group_values = {template_key: Markup("") for template_key in group_slots.values()}
+        profile_values = {
+            "first_name": "Max",
+            "last_name": "Mustermann",
+            "title": "IT-Abteilung",
+            "phone": "+49 30 123456",
+            "email": f"max@{domain}",
+            "domain_name": domain,
+        }
+        rendered = render_signature_template(raw_template, {**profile_values, **group_values})
+    except TemplateError as exc:
+        raise HTTPException(status_code=422, detail="Invalid signature template") from exc
+    except (SignatureStorageError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid signature template") from exc
+    return {"domain": domain, "html": rendered, "preview": True}
