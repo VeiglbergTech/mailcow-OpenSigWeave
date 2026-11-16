@@ -117,3 +117,33 @@ Do not enable message injection until the integration tests prove authenticated 
 ## Current state
 
 This repository still contains only the Mailcow upstream baseline plus integration documentation. No runtime service, PHP page, migration, Rspamd hook or backup change has been committed yet.
+
+
+## 6. User profile data and existing directory connection
+
+This is a separate requirement from mailbox authentication and must not introduce another LDAP/Active Directory connection.
+
+Mailcow already provides the required data path for signatures:
+
+- `mailbox.custom_attributes` is a JSON column.
+- `data/conf/rspamd/dynmaps/footer.php` reads the authenticated mailbox's `custom_attributes` and returns them as the `vars` object.
+- The existing Mailcow footer pipeline therefore already transports mailbox-specific values to the signature rendering stage.
+
+The current Mailcow identity sync does **not** currently import a general set of profile attributes such as `telephoneNumber` into `mailbox.custom_attributes`. The LDAP directory reader currently requests the configured username field, `displayName`, `cn`, `userAccountControl`, one optional `attributeField` (used for mailbox-template selection), stable-ID attributes and optionally `memberOf`. The sync planner currently applies the display name and mailbox template; it does not synchronize arbitrary LDAP profile fields.
+
+The Mailcow schema also contains `c_telephonenumber` in SOGo-related address-book/static-view tables. That alone is **not** evidence that a mailbox's AD telephone number is available to the footer pipeline.
+
+### Required design
+
+Extend Mailcow's existing identity-sync flow, rather than adding another connection:
+
+1. Reuse the already configured LDAP provider settings and the same `identity_provider('init')` connection created for the existing identity sync.
+2. Add an explicit allowlisted LDAP attribute mapping for the profile fields that should be synchronized, e.g. `telephoneNumber`, `department`, `title`, `givenName`, `sn`, and optionally `mobile`.
+3. Request those attributes in the same paged LDAP user search; do not open a second LDAP bind/session or add another service.
+4. Persist the mapped values in the existing `mailbox.custom_attributes` JSON under a reserved OpenSigWeave-owned namespace, preserving unrelated Mailcow custom attributes and any manually managed values.
+5. Have the existing `footer.php` response pass those values through to OpenSigWeave. No LDAP connection is made by OpenSigWeave at send time.
+6. Define clearing behavior for attributes removed from AD, missing values, and disabled/removed users. Only keys owned by the directory mapping may be automatically overwritten or cleared.
+
+The exact public placeholder names and whether manual per-mailbox overrides take precedence over directory values remain product decisions. They must be explicit and documented before implementation.
+
+**Conclusion:** the telephone number can be sourced from AD without a new connection, but the current Mailcow sync does not yet copy it into the mailbox footer variables. A small extension to the existing Mailcow identity sync is required.
