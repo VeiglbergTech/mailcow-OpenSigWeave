@@ -36,6 +36,12 @@ class EngineHttpBoundaryTests(unittest.TestCase):
                 "domain VARCHAR(255) PRIMARY KEY, active TINYINT(1) NOT NULL)"
             ))
 
+    @classmethod
+    def tearDownClass(cls):
+        # Keep the disposable Mailcow stand-in out of the isolated schema tests.
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(text("DROP TABLE IF EXISTS domain"))
+
     def setUp(self):
         self.client = TestClient(app)
 
