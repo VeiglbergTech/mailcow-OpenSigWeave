@@ -116,6 +116,9 @@ def signature_json(db, row):
     version = db.execute(select(SignatureVersionDB).where(
         SignatureVersionDB.signature_id == row.id
     ).order_by(SignatureVersionDB.version_number.desc()).limit(1)).scalar_one_or_none()
+    variant = db.execute(select(SignatureVariantDB).where(
+        SignatureVariantDB.signature_id == row.id
+    ).order_by(SignatureVariantDB.pool_name).limit(1)).scalar_one_or_none()
     html = ""
     if version:
         try:
@@ -124,7 +127,9 @@ def signature_json(db, row):
             raise HTTPException(status_code=503, detail="Signature asset unavailable")
     return {"id": row.id, "name": row.name, "mode": row.mode, "is_active": row.is_active,
             "scope": row.scope, "domains": domains, "html_content": html,
-            "version": version.version_number if version else 0}
+            "version": version.version_number if version else 0,
+            "weight": variant.weight if variant else 1,
+            "variant_enabled": variant.is_enabled if variant else False}
 
 
 @router.get("/catalog", dependencies=[Depends(require_key)])
@@ -191,6 +196,9 @@ def add_signature(payload: SignatureInput, db: Session = Depends(get_db)):
         db.add(SignatureVersionDB(id=version_id.hex, signature_id=signature_id, version_number=1,
                                   relative_path=stored.relative_path, sha256=stored.sha256,
                                   size_bytes=stored.size_bytes, created_by="mailcow-admin"))
+        db.add(SignatureVariantDB(id=uuid.uuid4().hex, signature_id=signature_id,
+                                  pool_name=payload.mode, weight=payload.weight,
+                                  is_enabled=payload.variant_enabled))
         db.commit()
         db.refresh(row)
         return signature_json(db, row)
@@ -233,6 +241,24 @@ def edit_signature(signature_id: str, payload: SignatureUpdate, db: Session = De
             row.mode = payload.mode
         if payload.is_active is not None:
             row.is_active = payload.is_active
+        if payload.mode is not None or payload.weight is not None or payload.variant_enabled is not None:
+            old_pool = row.mode
+            new_pool = payload.mode or old_pool
+            variant = db.execute(select(SignatureVariantDB).where(
+                SignatureVariantDB.signature_id == signature_id,
+                SignatureVariantDB.pool_name == old_pool
+            ).order_by(SignatureVariantDB.id).limit(1)).scalar_one_or_none()
+            if variant is None:
+                variant = SignatureVariantDB(id=uuid.uuid4().hex, signature_id=signature_id,
+                                             pool_name=new_pool, weight=payload.weight or 1,
+                                             is_enabled=True if payload.variant_enabled is None else payload.variant_enabled)
+                db.add(variant)
+            else:
+                variant.pool_name = new_pool
+                if payload.weight is not None:
+                    variant.weight = payload.weight
+                if payload.variant_enabled is not None:
+                    variant.is_enabled = payload.variant_enabled
         if payload.domain_ids is not None:
             domains = db.execute(select(DomainDB).where(DomainDB.id.in_(payload.domain_ids))).scalars().all() if payload.domain_ids else []
             if len(domains) != len(set(payload.domain_ids)):
