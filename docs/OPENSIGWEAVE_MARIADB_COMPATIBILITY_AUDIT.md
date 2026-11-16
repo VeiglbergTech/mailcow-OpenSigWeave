@@ -1,6 +1,6 @@
 # OpenSigWeave MariaDB Compatibility Audit
 
-**Status:** Source-level audit completed; no runtime migration test has been run yet  
+**Status:** Initial Mailcow-mode schema and MariaDB 10.11 CI migration test implemented  
 **Target database:** Mailcow MariaDB 10.11, using the existing `mysql-mailcow` service  
 **Audited upstream:** `VeiglbergTech/OpenSigWeave:dev` at `93b360225c5008fb60f6598e431ee2e3ff03842d`
 
@@ -51,3 +51,22 @@ The engine will connect to the existing `mysql-mailcow` service on the private C
 ## Limitations of this audit
 
 This is a source-level compatibility audit only. No MariaDB container was started and no migration was executed. The integration must not be marked database-compatible until the automated and real MariaDB tests pass.
+
+
+## Implemented validation milestone
+
+The Mailcow fork now contains a dedicated SQLAlchemy model set under
+`data/Dockerfiles/opensigweave/`. Application tables use the `osw_` prefix,
+and Alembic uses `osw_alembic_version`. The Mailcow-mode model set intentionally
+omits standalone LDAP/OIDC provider tables and caches.
+
+GitHub Actions run
+[#43844742174](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43844742174)
+successfully executed the initial Alembic migration against a disposable
+MariaDB 10.11.19 service. The run verified that the namespaced tables and
+foreign keys were created and that a second upgrade to head is idempotent.
+All 8 Python tests passed.
+
+This validates the initial schema bootstrap only. It does not validate
+Mailcow's live database, concurrent upgrades, rollback on a production
+instance, the future engine runtime, or the complete mail flow.
