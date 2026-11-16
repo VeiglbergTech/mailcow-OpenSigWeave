@@ -20,6 +20,12 @@ from database import Base
 
 
 class DomainDB(Base):
+    """OpenSigWeave policy for one canonical, active Mailcow domain.
+
+    domain_name is a logical reference to Mailcow's authoritative domain.domain
+    value. The engine verifies existence and active state against that table
+    before returning a signature; this table never creates Mailcow domains.
+    """
     __tablename__ = "osw_domains"
     id = Column(Integer, primary_key=True, index=True)
     domain_name = Column(String(253), unique=True, index=True, nullable=False)
