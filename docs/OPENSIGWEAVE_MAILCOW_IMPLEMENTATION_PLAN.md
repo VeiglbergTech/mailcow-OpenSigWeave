@@ -145,4 +145,4 @@ Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `depa
 
 The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow installation until the complete upgrade and backup procedure has been reviewed.
 
-The CI workflow is intended to execute the migration against a disposable MariaDB 10.11 service. A successful run validates this schema slice only; it does not establish full Mailcow integration or production readiness.
+The CI workflow has successfully executed the migration against a disposable MariaDB 10.11.19 service in [run #43844742174](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43844742174). All 8 Python tests passed, including initial migration, table/foreign-key isolation and idempotent upgrade. This validates this schema slice only; it does not establish full Mailcow integration or production readiness.
