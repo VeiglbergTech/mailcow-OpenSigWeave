@@ -13,9 +13,9 @@
 - Engine management calls are authenticated with the internal engine key; the engine independently checks that the target Mailcow domain exists and is active.
 - Mailcow's `DB_VERSION` was advanced so existing installations run normal schema reconciliation and receive the default-disabled ACL column.
 - The signature volume is included in the fork's `backup_and_restore.sh` component backup and restore handling.
-- CI passes 456 PHP tests (1,309 assertions) and 20 Python tests, including MariaDB 10.11 integration tests.
+- CI passes 456 PHP tests (1,309 assertions) and 21 Python tests, including MariaDB 10.11 integration tests.
 
-Not yet implemented: preview UI, rich-text editing, rules/variants/group administration, rename/delete flows and user-level override controls. Rspamd/MIME/reply and SMTP/DKIM end-to-end validation are still required; signature injection remains disabled.
+The native editor now includes a sandboxed preview with sample profile values. Not yet implemented: rich-text editing, rules/variants/group administration, rename/delete flows and user-level override controls. Rspamd/MIME/reply and SMTP/DKIM end-to-end validation are still required; signature injection remains disabled.
 
 
 ## 1. Architecture decision
