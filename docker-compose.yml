@@ -60,6 +60,12 @@ services:
         - SIGNATURE_STORAGE_PATH=/var/lib/opensigweave
       volumes:
         - opensigweave-signatures-vol-1:/var/lib/opensigweave
+      healthcheck:
+        test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2)"]
+        interval: 30s
+        timeout: 3s
+        retries: 3
+        start_period: 30s
       restart: always
       networks:
         mailcow-network:
@@ -146,7 +152,8 @@ services:
       command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
       depends_on:
         - redis-mailcow
-        - opensigweave-mailcow
+        opensigweave-mailcow:
+          condition: service_healthy
       volumes:
         - ./data/hooks/phpfpm:/hooks:Z
         - ./data/web:/web:z
