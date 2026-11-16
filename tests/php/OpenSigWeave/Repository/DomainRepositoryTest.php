@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Mailcow\\Tests\\OpenSigWeave\\Repository;
+namespace Mailcow\Tests\OpenSigWeave\Repository;
 
-use Mailcow\\Core\\Context;
-use Mailcow\\OpenSigWeave\\Repository\\DomainRepository;
+use Mailcow\Core\Context;
+use Mailcow\OpenSigWeave\Repository\DomainRepository;
 use PDO;
-use PHPUnit\\Framework\\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class DomainRepositoryTest extends TestCase
 {
