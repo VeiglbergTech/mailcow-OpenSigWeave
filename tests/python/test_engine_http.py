@@ -90,6 +90,13 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         signature_id = signature.json()["id"]
         self.assertEqual(signature.json()["weight"], 7)
         self.assertEqual(signature.json()["version"], 1)
+        signature_update = self.client.put("/admin/signatures/" + signature_id, headers=headers, json={
+            "is_active": False,
+            "variant_enabled": False,
+        })
+        self.assertEqual(signature_update.status_code, 200, signature_update.text)
+        self.assertFalse(signature_update.json()["is_active"])
+        self.assertFalse(signature_update.json()["variant_enabled"])
 
         group = self.client.post("/admin/groups", headers=headers, json={
             "name": f"Admin group {suffix}",
@@ -101,6 +108,7 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         group_update = self.client.put("/admin/groups/" + group_id, headers=headers, json={
             "name": f"Admin group {suffix}",
             "domain_ids": [domain_id],
+            "is_active": False,
             "members": [{"signature_id": signature_id, "weight": 11, "is_enabled": True}],
         })
         self.assertEqual(group_update.status_code, 200, group_update.text)
@@ -136,6 +144,7 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(groups.status_code, 200, groups.text)
         stored_group = next(item for item in groups.json() if item["id"] == group_id)
         self.assertEqual(stored_group["members"][0]["weight"], 11)
+        self.assertFalse(stored_group["is_active"])
         rules = self.client.get("/admin/rules", headers=headers)
         self.assertEqual(rules.status_code, 200, rules.text)
         stored_rule = next(item for item in rules.json() if item["name"] == f"Admin rule {suffix}")
