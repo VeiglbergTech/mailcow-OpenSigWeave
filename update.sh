@@ -210,6 +210,15 @@ if [[ ${#OPENSIGWEAVE_ENGINE_KEY} -lt 32 ]]; then
   source mailcow.conf
 fi
 
+# Separate key for the PHP-FPM administration gateway; never share it with the footer renderer.
+if [[ ${#OPENSIGWEAVE_ADMIN_KEY} -lt 32 ]]; then
+  OPENSIGWEAVE_ADMIN_KEY=$(LC_ALL=C </dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c 64)
+  sed -i --follow-symlinks '/^OPENSIGWEAVE_ADMIN_KEY=/d' mailcow.conf
+  printf '\n# Private key for the OpenSigWeave Mailcow administration API\nOPENSIGWEAVE_ADMIN_KEY=%s\n' "${OPENSIGWEAVE_ADMIN_KEY}" >> mailcow.conf
+  chmod 600 mailcow.conf
+  source mailcow.conf
+fi
+
 if ! grep -q '^OPENSIGWEAVE_ENABLED=' mailcow.conf; then
   printf 'OPENSIGWEAVE_ENABLED=n\n' >> mailcow.conf
   source mailcow.conf
