@@ -33,7 +33,7 @@ if ($path === '/admin/catalog' && $method === 'GET') {
   $allowed = true;
 } elseif ($path === '/admin/domains' && $method === 'POST') {
   $allowed = true;
-} elseif (preg_match('~^/admin/domains/[0-9]+$~', $path) && $method === 'PUT') {
+} elseif (preg_match('~^/admin/domains/[0-9]+$~', $path) && in_array($method, ['PUT', 'DELETE'], true)) {
   $allowed = true;
 } elseif ($path === '/admin/signatures' && $method === 'POST') {
   $allowed = true;
