@@ -59,9 +59,11 @@ Mailcow mounts `./data/conf/rspamd/lua/` read-only into Rspamd and mounts `./dat
 
 ### 4. Native Mailcow UI and authorization
 
-The Mailcow PHP bootstrap already initializes the authenticated PDO connection, Redis, sessions and authentication helpers. The header exposes the current Mailcow role and username to Twig. This is the correct integration boundary.
+The Mailcow PHP bootstrap already initializes the authenticated PDO connection, Redis, sessions and authentication helpers. The active session exposes `mailcow_cc_username` and `mailcow_cc_role`; the known roles are `admin`, `domainadmin` and `user`. The native admin dashboard demonstrates the expected page pattern: load prerequisites, load the matching role trigger, call `protect_route(['admin'])`, then render through the common header/footer and Twig template.
 
-The PHP layer must enforce authorization on every request, not only hide navigation links. A role/domain/mailbox permission matrix is still required before implementation. The Python engine must never trust browser-provided identity or role headers; the PHP server must derive identity from the active Mailcow session and authenticate its server-to-server engine requests.
+The admin settings UI is a native Twig tab layout (`data/web/templates/admin.twig`). The configurable app-link mechanism in the header only creates links to other applications; it is not a replacement for a native Mailcow page. A native implementation should therefore add a proper Mailcow PHP route/template and only then add its navigation entry in the appropriate role-specific UI.
+
+The PHP layer must enforce authorization on every request, not only hide navigation links. A role/domain/mailbox permission matrix is still required before implementation. At minimum, global configuration belongs to `admin`; `domainadmin` must be limited to domains assigned to that account; `user` must be limited to their own mailbox/personal override if that feature is enabled. These are proposed boundaries, not yet a completed implementation. The Python engine must never trust browser-provided identity or role headers; the PHP server must derive identity from the active Mailcow session and authenticate its server-to-server engine requests.
 
 ### 5. Backup and restore
 
