@@ -91,12 +91,11 @@ Implemented:
   Mailcow footer as fallback and does not add a second Rspamd MIME injector.
 - Signature volume backup/restore support.
 - Native Mailcow management page with admin-only session authorization and a CSRF-protected PHP gateway.
-- Domain and signature CRUD in the Mailcow UI, CKEditor 5 editing, weighted signature variants, and group/rule create, edit and delete workflows.
+- Domain and signature CRUD in the Mailcow UI, CKEditor 5 editing, weighted signature variants, per-member group weights, and group/rule create, edit and delete workflows.
 - Private management API integration tests for domains, signatures, groups and rules.
 
 Still open:
 
-- Per-member weights are editable independently in the group editor.
 - Domain-admin delegation and broader management regression coverage.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification of trim-whitespace/device-signature policies and final DKIM behavior in a real Mailcow test installation.
