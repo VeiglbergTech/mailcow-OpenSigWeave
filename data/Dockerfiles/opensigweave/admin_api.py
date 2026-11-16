@@ -33,7 +33,7 @@ def get_db():
         yield session
 
 
-def require_key(x_engine_key: str | None = Header(default=None, alias="X-Engine-Key")):
+def require_key(x_engine_key: str | None = Header(default=None, alias="X-Admin-Key")):
     if not hmac.compare_digest(x_engine_key or "", KEY):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
