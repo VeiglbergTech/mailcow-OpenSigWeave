@@ -132,6 +132,9 @@ class SyncService
                 continue;
             }
             $this->repo->link($create['email'], $provider, $create['id']);
+            if (is_array($create['profile_attributes'] ?? null)) {
+                $this->repo->setOpenSigWeaveProfile($create['email'], $create['profile_attributes']);
+            }
         }
         foreach ($plan->deactivate as $username) {
             $this->repo->setActive($username, $provider, 2, true);
@@ -145,6 +148,9 @@ class SyncService
         $this->sogo->refreshStaticView(array_merge($plan->deactivate, $plan->restore));
         $changed = [];
         $errors = array_merge($errors, $this->applyGroups($plan, $changed));
+        foreach ($plan->profileAttributes as $username => $profile) {
+            $this->repo->setOpenSigWeaveProfile((string)$username, $profile);
+        }
         [$updateErrors, $updated] = $this->applyUpdates($plan, $changed);
         return [array_merge($errors, $updateErrors), $updated];
     }
