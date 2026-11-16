@@ -59,7 +59,9 @@ class MailcowProfile(BaseModel):
 
 class SignatureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    sender: str = Field(min_length=3, max_length=254)
+    authenticated_user: str = Field(min_length=3, max_length=254)
+    envelope_sender: str = Field(min_length=3, max_length=254)
+    target_domain: str = Field(min_length=3, max_length=253)
     profile: MailcowProfile = Field(default_factory=MailcowProfile)
     mode: str | None = Field(default=None, max_length=32)
     signature_name: str | None = Field(default=None, max_length=255)
@@ -96,11 +98,17 @@ def render_mailcow_signature(
     db: Session = Depends(get_db),
 ):
     response.headers["Cache-Control"] = "no-store, private"
-    sender = request.sender.strip().casefold()
-    if not EMAIL_PATTERN.fullmatch(sender):
-        raise HTTPException(status_code=400, detail="Invalid sender email")
+    authenticated_user = request.authenticated_user.strip().casefold()
+    envelope_sender = request.envelope_sender.strip().casefold()
+    target_domain = request.target_domain.strip().rstrip(".").casefold()
+    if not EMAIL_PATTERN.fullmatch(authenticated_user):
+        raise HTTPException(status_code=400, detail="Invalid authenticated mailbox")
+    if not EMAIL_PATTERN.fullmatch(envelope_sender):
+        raise HTTPException(status_code=400, detail="Invalid envelope sender")
+    if len(target_domain) > 253 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", target_domain):
+        raise HTTPException(status_code=400, detail="Invalid target domain")
 
-    domain_part = sender.rsplit("@", 1)[1]
+    domain_part = target_domain
     domain_obj = db.execute(
         select(DomainDB).where(func.lower(DomainDB.domain_name) == domain_part)
     ).scalar_one_or_none()
@@ -115,7 +123,7 @@ def render_mailcow_signature(
         return empty_response
 
     override = db.execute(
-        select(UserOverrideDB).where(func.lower(UserOverrideDB.user_email) == sender)
+        select(UserOverrideDB).where(func.lower(UserOverrideDB.user_email) == authenticated_user)
     ).scalar_one_or_none()
     if override is not None and override.is_disabled:
         return empty_response
@@ -180,7 +188,7 @@ def render_mailcow_signature(
             mode = resolve_mode(mode_candidate)
         else:
             context = RuleContext(
-                sender=sender,
+                sender=envelope_sender,
                 domain=domain_part,
                 groups=frozenset(profile.groups),
                 claims=profile.claims,
@@ -214,7 +222,7 @@ def render_mailcow_signature(
         if mode is not None:
             variant = select_and_record_variant(
                 db,
-                sender_email=sender,
+                sender_email=authenticated_user,
                 pool_name=mode.value,
                 domain_id=domain_obj.id,
                 signature_id=signature_id if not explicit_mode else None,
@@ -237,11 +245,11 @@ def render_mailcow_signature(
         return empty_response
 
     profile_values = {
-        "first_name": profile.first_name or sender.split("@")[0].capitalize(),
+        "first_name": profile.first_name or authenticated_user.split("@")[0].capitalize(),
         "last_name": profile.last_name,
         "title": profile.title,
         "phone": profile.phone,
-        "email": sender,
+        "email": envelope_sender,
         "domain_name": domain_part,
     }
     try:
