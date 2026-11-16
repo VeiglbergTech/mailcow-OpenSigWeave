@@ -4,7 +4,7 @@ set -euo pipefail
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UPSTREAM_URL="${OPEN_SIG_WEAVE_UPSTREAM_URL:-https://github.com/VeiglbergTech/OpenSigWeave.git}"
 # Pin to the reviewed beta candidate; override only for an intentional sync review.
-UPSTREAM_REF="${OPEN_SIG_WEAVE_UPSTREAM_REF:-29c86d5ba9371e067319867bf93b8ea820c0f71b}"
+UPSTREAM_REF="${OPEN_SIG_WEAVE_UPSTREAM_REF:-eaa8dde852fdb6c52d21ef6babf430cc1a583cb1}"
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEMP_DIR}"' EXIT
 
@@ -19,6 +19,7 @@ FILES=(
   "core/rules.py"
   "core/variant_selector.py"
   "core/rule_repository.py"
+  "core/slug.py"
   "signature_renderer.py"
   "signature_sanitizer.py"
   "signature_storage.py"
