@@ -81,6 +81,19 @@ jobs:
         run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
       - name: Check modified shell scripts
         run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh
+      - name: Validate Mailcow Compose configuration
+        env:
+          DBNAME: mailcow
+          DBUSER: mailcow
+          DBPASS: ci-db-password
+          DBROOT: ci-db-root-password
+          REDISPASS: ci-redis-password
+          OPENSIGWEAVE_ENGINE_KEY: ci-opensigweave-engine-key-at-least-32-chars
+          OPENSIGWEAVE_ENABLED: n
+          MAILCOW_HOSTNAME: mail.example.test
+          TZ: Etc/UTC
+          COMPOSE_PROJECT_NAME: mailcow-dockerized
+        run: docker compose --env-file /dev/null config --quiet
       - name: Run schema, MariaDB and HTTP boundary tests
         env:
           ENGINE_API_KEY: ci-engine-key-that-is-at-least-32-characters-long
