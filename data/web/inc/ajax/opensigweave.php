@@ -47,7 +47,7 @@ if (!$allowed) {
 }
 
 $adminKey = getenv('OPENSIGWEAVE_ADMIN_KEY');
-if (!is_string($engineKey) || strlen($engineKey) < 32) {
+if (!is_string($adminKey) || strlen($adminKey) < 32) {
   http_response_code(503);
   echo json_encode(['detail' => 'OpenSigWeave administration key is not configured']);
   exit;
@@ -72,7 +72,7 @@ curl_setopt_array($handle, [
   CURLOPT_HTTPHEADER => [
     'Accept: application/json',
     'Content-Type: application/json',
-    'X-Admin-Key: ' . $engineKey,
+    'X-Admin-Key: ' . $adminKey,
   ],
 ]);
 if ($method !== 'GET') {
