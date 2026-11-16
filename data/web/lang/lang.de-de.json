@@ -12,6 +12,7 @@
         "filters": "Filter",
         "login_as": "Einloggen als Mailbox-Benutzer",
         "mailbox_groups": "Gruppen",
+        "opensigweave": "OpenSigWeave-Signaturen verwalten",
         "mailbox_relayhost": "Relayhost für eine Mailbox setzen",
         "prohibited": "Untersagt durch Richtlinie",
         "protocol_access": "Ändern der erlaubten Protokolle",

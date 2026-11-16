@@ -1053,7 +1053,8 @@ function init_db_schema()
           "domain_relayhost" => "TINYINT(1) NOT NULL DEFAULT '1'",
           "domain_desc" => "TINYINT(1) NOT NULL DEFAULT '0'",
           "alias_external_goto" => "TINYINT(1) NOT NULL DEFAULT '1'",
-          "mailbox_groups" => "TINYINT(1) NOT NULL DEFAULT '1'"
+          "mailbox_groups" => "TINYINT(1) NOT NULL DEFAULT '1'",
+          "opensigweave" => "TINYINT(1) NOT NULL DEFAULT '0'"
         ),
         "keys" => array(
           "primary" => array(

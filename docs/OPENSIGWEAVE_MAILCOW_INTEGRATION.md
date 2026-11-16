@@ -119,3 +119,9 @@ The current `dev` branch now contains the first working integration foundation:
 GitHub Actions currently passes 447 PHP unit tests and 15 Python tests, plus MariaDB migration/selection/profile tests, upstream sync reproducibility, Docker image build, PHP lint, shell lint and Compose validation.
 
 The native Mailcow signature-management UI, role/domain-specific authorization for signature operations, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification are still outstanding. The integration has not been deployed against a live Mailcow instance and must not be enabled in production yet.
+
+## Domain-administrator permission
+
+OpenSigWeave uses a dedicated Mailcow domain-administrator ACL flag named `opensigweave`. It is stored in the existing `da_acl` table and defaults to disabled for existing and newly created domain administrators. A Mailcow administrator must explicitly grant this permission in the normal domain-administrator edit dialog.
+
+The application still enforces domain scope independently: the permission only enables the module; it does not grant access to domains that are not actively assigned to the domain administrator. Inactive Mailcow domains and inactive domain assignments are excluded. Administrators retain access to all active Mailcow domains. Mailbox users cannot manage signatures.

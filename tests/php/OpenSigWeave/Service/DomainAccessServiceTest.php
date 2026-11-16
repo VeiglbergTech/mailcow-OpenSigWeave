@@ -41,7 +41,7 @@ class DomainAccessServiceTest extends TestCase
 
     public function testDomainAdminIsLimitedToAssignedMailcowDomains(): void
     {
-        $context = FakeContext::domainAdmin([], ['managed.example.org']);
+        $context = FakeContext::domainAdmin([], ['managed.example.org'], ['opensigweave' => '1']);
         $this->domains->expects($this->once())
             ->method('listManageable')
             ->with($context)
@@ -67,6 +67,21 @@ class DomainAccessServiceTest extends TestCase
 
         $service = new DomainAccessService($this->domains, $context);
 
+        self::assertFalse($service->canManageDomain('managed.example.org'));
+        $this->expectException(AccessDenied::class);
+        $service->requireManageableDomain('managed.example.org');
+    }
+
+
+    public function testDomainAdminWithoutOpenSigWeaveAclIsDenied(): void
+    {
+        $context = FakeContext::domainAdmin([], ['managed.example.org'], []);
+        $this->domains->expects($this->never())->method('listManageable');
+        $this->domains->expects($this->never())->method('canManage');
+
+        $service = new DomainAccessService($this->domains, $context);
+
+        self::assertSame([], $service->manageableDomains());
         self::assertFalse($service->canManageDomain('managed.example.org'));
         $this->expectException(AccessDenied::class);
         $service->requireManageableDomain('managed.example.org');

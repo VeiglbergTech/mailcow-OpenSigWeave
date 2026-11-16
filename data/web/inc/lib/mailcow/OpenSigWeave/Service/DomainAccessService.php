@@ -25,7 +25,7 @@ class DomainAccessService
     /** @return string[] active Mailcow domains visible to this caller */
     public function manageableDomains(): array
     {
-        if (!$this->context->isAdmin() && !$this->context->isDomainAdmin()) {
+        if (!$this->context->isAdmin() && (!$this->context->isDomainAdmin() || !$this->context->hasAcl('opensigweave'))) {
             return [];
         }
 
@@ -34,7 +34,7 @@ class DomainAccessService
 
     public function canManageDomain(string $domain): bool
     {
-        if ($domain === '' || (!$this->context->isAdmin() && !$this->context->isDomainAdmin())) {
+        if ($domain === '' || (!$this->context->isAdmin() && (!$this->context->isDomainAdmin() || !$this->context->hasAcl('opensigweave')))) {
             return false;
         }
 
