@@ -843,9 +843,9 @@ rspamd_config:register_symbol({
             }
             -- add custom mailbox attributes
             if footer.vars and type(footer.vars) == "string" then
-              local footer_vars = cjson.decode(footer.vars)
+              local vars_decoded, footer_vars = pcall(cjson.decode, footer.vars)
 
-              if type(footer_vars) == "table" then
+              if vars_decoded and type(footer_vars) == "table" then
                 for key, value in pairs(footer_vars) do
                   replacements[key] = value
                 end
