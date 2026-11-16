@@ -27,7 +27,7 @@ class DomainAccessServiceTest extends TestCase
             ->method('listManageable')
             ->with($context)
             ->willReturn(['example.org', 'example.net']);
-        $this->domains->expects($this->once())
+        $this->domains->expects($this->exactly(2))
             ->method('canManage')
             ->with($context, 'example.org')
             ->willReturn(true);
