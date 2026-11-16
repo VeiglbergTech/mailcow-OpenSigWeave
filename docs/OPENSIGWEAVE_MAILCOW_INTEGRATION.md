@@ -116,11 +116,11 @@ The current `dev` branch now contains the first working integration foundation:
 - Backup and restore support for the persistent signature volume.
 - A pinned upstream sync script for the provider-neutral OpenSigWeave modules.
 
-GitHub Actions passes 456 PHP tests (1,309 assertions) and 20 Python tests, including MariaDB 10.11-backed domain repository and engine API tests. The workflow also validates upstream source-sync reproducibility, Docker image build, PHP syntax, Twig template loading, shell lint and Compose configuration.
+GitHub Actions passes 456 PHP tests (1,309 assertions) and 21 Python tests, including MariaDB 10.11-backed domain repository and engine API tests. The workflow also validates upstream source-sync reproducibility, Docker image build, PHP syntax, Twig template loading, shell lint and Compose configuration.
 
-The native Mailcow UI now provides administrator and domain-administrator routes, active-domain selection, signature listing and creation, HTML editing by creating a new immutable version, version history, restore-as-new-version and activation/deactivation. It uses the existing Mailcow session and a CSRF token. The internal FastAPI service exposes only private, engine-key-protected management endpoints; the PHP layer rechecks the caller's Mailcow role, ACL and domain assignment for every operation. The current editor is a source-level HTML textarea, not yet a rich-text editor.
+The native Mailcow UI now provides administrator and domain-administrator routes, active-domain selection, signature listing and creation, HTML editing by creating a new immutable version, version history, restore-as-new-version and activation/deactivation. It uses the existing Mailcow session and a CSRF token. The internal FastAPI service exposes only private, engine-key-protected management endpoints; the PHP layer rechecks the caller's Mailcow role, ACL and domain assignment for every operation. The editor currently uses a source-level HTML textarea rather than a rich-text editor. A sandboxed preview renders sample profile values without executing signature scripts.
 
-Still outstanding are the preview UI, rules and variant/group administration, rename/delete workflows, additional user-level override controls, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification. The integration has not been deployed against a live Mailcow instance and signature injection must remain disabled until those tests are complete.
+Still outstanding are rules and variant/group administration, rename/delete workflows, additional user-level override controls, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification. The integration has not been deployed against a live Mailcow instance and signature injection must remain disabled until those tests are complete.
 
 ## Domain-administrator permission
 
