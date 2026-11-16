@@ -79,13 +79,29 @@ If signature assets remain filesystem-backed, the integration must update all of
 
 The existing MariaDB physical backup covers the MariaDB data volume, so metadata tables in that same server remain within the existing database backup. The signature files still need their own archive if kept outside MariaDB.
 
+## Existing Mailcow footer pipeline (important discovery)
+
+Mailcow already has a native domain-wide footer implementation:
+
+- The `domain_wide_footer` table stores HTML, plain text, mailbox exclusions, alias-domain exclusions and the reply-skip setting.
+- `data/conf/rspamd/lua/rspamd.local.lua` registers the `MOO_FOOTER` prefilter.
+- `MOO_FOOTER` calls the internal `http://nginx:8081/footer.php` endpoint, passing the authenticated SMTP username, envelope sender and sender domain.
+- `data/conf/rspamd/dynmaps/footer.php` reads the existing footer and mailbox custom attributes from MariaDB and returns JSON.
+- The Lua callback uses Rspamd's `lua_mime.add_text_footer` to update the MIME body and relevant content headers.
+
+This is a better integration point than installing a second independent Rspamd injection plugin. The Mailcow distribution should investigate extending the existing footer data provider so it can return an OpenSigWeave-selected signature when OpenSigWeave is enabled for the domain, while preserving the current `domain_wide_footer` behavior as the fallback. This avoids two competing MIME injectors and reuses Mailcow's established SMTP identity and MIME handling path.
+
+The standalone OpenSigWeave Lua adapter should therefore not be copied into Mailcow by default. Its selection and marker semantics can be retained only where they can be integrated safely into the existing `MOO_FOOTER` flow. The existing footer endpoint provides both authenticated username and envelope sender; any engine adapter must preserve that distinction and must not assume the envelope sender is the authenticated mailbox.
+
 ## Proposed technical direction
 
 Retain the existing Python selection/rendering/sanitization engine, but separate it from the standalone portal. Keep the native Mailcow PHP frontend responsible for browser sessions, CSRF, permissions and UI. Keep the engine on the Mailcow Docker network with no published host port.
 
-Before connecting it to MariaDB, implement a dedicated persistence namespace and prove the complete migration chain against MariaDB 10.11. Preserve the existing filesystem version store and add it to Mailcow's normal backup/restore path unless testing demonstrates that storing HTML in MariaDB is safer and simpler.
+Prefer adapting Mailcow's existing `footer.php` / `MOO_FOOTER` path over adding another Rspamd Lua injection plugin. Use Mailcow's existing authenticated SMTP username, envelope sender, alias-domain resolution, mailbox exclusions and MIME rewriting as the integration boundary. OpenSigWeave should provide the selected signature data to that pipeline only when enabled; otherwise the current Mailcow footer must continue unchanged.
 
-Do not enable message injection until the integration tests prove authenticated SMTP identity, envelope-sender authorization, MIME behavior, reply handling and final DKIM ordering.
+Before connecting the engine to MariaDB, implement a dedicated persistence namespace and prove the complete migration chain against MariaDB 10.11. Preserve the existing filesystem version store and add it to Mailcow's normal backup/restore path unless testing demonstrates that storing HTML in MariaDB is safer and simpler.
+
+Do not enable message injection until the integration tests prove authenticated SMTP identity, envelope-sender authorization, alias-domain behavior, MIME handling, reply handling, existing-footer fallback and final DKIM ordering.
 
 ## Required implementation gates
 
