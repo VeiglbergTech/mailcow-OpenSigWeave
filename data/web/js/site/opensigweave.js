@@ -228,6 +228,8 @@
     $('osw-modal-title').textContent = signature ? 'Signatur bearbeiten' : 'Neue Signatur';
     $('osw-signature-name').value = signature ? signature.name : '';
     $('osw-signature-mode').value = signature ? signature.mode : 'AUTO';
+    $('osw-signature-active').checked = signature ? !!signature.is_active : true;
+    $('osw-signature-variant-enabled').checked = signature ? !!signature.variant_enabled : true;
     $('osw-signature-weight').value = signature ? signature.weight : 1;
     var domainSelect = $('osw-signature-domains');
     domainSelect.replaceChildren();
@@ -249,6 +251,8 @@
     var payload = {
       name: $('osw-signature-name').value.trim(),
       mode: $('osw-signature-mode').value,
+      is_active: $('osw-signature-active').checked,
+      variant_enabled: $('osw-signature-variant-enabled').checked,
       weight: Math.max(1, Number($('osw-signature-weight').value) || 1),
       domain_ids: Array.from($('osw-signature-domains').selectedOptions).map(function (o) { return Number(o.value); }),
       html_content: editor ? editor.getData() : ''
@@ -278,6 +282,7 @@
     var groupId = $('osw-group-id').value;
     var payload = {
       name: $('osw-group-name').value.trim(),
+      is_active: $('osw-group-active').checked,
       domain_ids: selectedValues('osw-group-domains').map(Number),
       members: Array.from($('osw-group-member-list').querySelectorAll('[data-signature-id]'))
         .filter(function (entry) { return entry.querySelector('[data-member-selected]').checked; })
@@ -336,6 +341,7 @@
     $('osw-group-id').value = group ? group.id : '';
     $('osw-group-title').textContent = group ? 'Signaturgruppe bearbeiten' : 'Signaturgruppe anlegen';
     $('osw-group-name').value = group ? group.name : '';
+    $('osw-group-active').checked = group ? !!group.is_active : true;
     editingGroupMembers = {};
     if (group) group.members.forEach(function (member) { editingGroupMembers[member.signature_id] = member; });
     var memberList = $('osw-group-member-list');
@@ -397,6 +403,7 @@
       });
       type.addEventListener('change', function () {
         editingRuleConditions[index].kind = type.value;
+        if (['claim_equals', 'attribute_equals'].indexOf(type.value) === -1) editingRuleConditions[index].key = '';
         renderRuleConditions();
       });
       typeColumn.append(type);
@@ -436,7 +443,7 @@
 
   function openRule(rule) {
     $('osw-rule-id').value = rule ? rule.id : '';
-    editingRuleConditions = rule ? rule.conditions.slice() : [];
+    editingRuleConditions = rule ? rule.conditions.map(function (condition) { return { kind: condition.kind, key: condition.key, value: condition.value }; }) : [];
     $('osw-rule-title').textContent = rule ? 'Regel bearbeiten' : 'Regel anlegen';
     $('osw-rule-name').value = rule ? rule.name : '';
     $('osw-rule-priority').value = rule ? String(rule.priority) : '0';
