@@ -202,11 +202,16 @@ chmod 600 mailcow.conf
 source mailcow.conf
 
 # Add a dedicated internal engine key to existing installations without overwriting an operator-provided value.
-if [[ -z "${OPENSIGWEAVE_ENGINE_KEY:-}" ]]; then
+if [[ ${#OPENSIGWEAVE_ENGINE_KEY} -lt 32 ]]; then
   OPENSIGWEAVE_ENGINE_KEY=$(LC_ALL=C </dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c 64)
   sed -i --follow-symlinks '/^OPENSIGWEAVE_ENGINE_KEY=/d' mailcow.conf
   printf '\n# Private key shared by the Mailcow footer adapter and OpenSigWeave engine\nOPENSIGWEAVE_ENGINE_KEY=%s\n' "${OPENSIGWEAVE_ENGINE_KEY}" >> mailcow.conf
   chmod 600 mailcow.conf
+  source mailcow.conf
+fi
+
+if ! grep -q '^OPENSIGWEAVE_ENABLED=' mailcow.conf; then
+  printf 'OPENSIGWEAVE_ENABLED=n\n' >> mailcow.conf
   source mailcow.conf
 fi
 
