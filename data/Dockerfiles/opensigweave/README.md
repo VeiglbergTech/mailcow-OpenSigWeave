@@ -4,7 +4,7 @@ This directory contains the embedded, headless OpenSigWeave engine. It is
 built from this repository and deployed as part of Mailcow's Compose project;
 a separate OpenSigWeave checkout or database service is not required.
 
-## Database boundary
+## Database and storage
 
 - Uses Mailcow's existing MariaDB service and DBNAME, DBUSER and DBPASS.
 - All application tables use the reserved `osw_` prefix.
@@ -12,6 +12,7 @@ a separate OpenSigWeave checkout or database service is not required.
 - No standalone LDAP/OIDC provider registry or identity cache is included.
 - Signature HTML and immutable snapshots are stored below
   `SIGNATURE_STORAGE_PATH` (default `/var/lib/opensigweave`).
+- The persistent signature volume is included in Mailcow backup and restore.
 
 Optional database overrides:
 
@@ -20,7 +21,8 @@ Optional database overrides:
 
 ## Private engine API
 
-The service exposes only:
+The Compose service is named `opensigweave-mailcow`, has no published host
+port and is reachable on the private Mailcow network as `opensigweave:8090`.
 
 - `GET /health`: liveness endpoint; no database query.
 - `POST /internal/signature`: signature compilation, protected by
@@ -35,11 +37,21 @@ The request distinguishes three Mailcow values:
 - `target_domain`: Mailcow-resolved primary domain, including alias-domain
   resolution.
 
-The caller must be the trusted Mailcow PHP footer adapter. The engine does not
+The caller is Mailcow's existing PHP footer adapter. The engine does not
 authenticate SMTP users itself and does not connect to LDAP, Active Directory,
 OIDC or Authentik. Profile values are passed by Mailcow from its own mailbox
-metadata. The API key must be generated and shared only between the PHP adapter
-and this private service before Compose integration is enabled.
+metadata.
+
+## Secret provisioning and activation
+
+- New installations receive a random `OPENSIGWEAVE_ENGINE_KEY` from
+  `generate_config.sh`.
+- Existing installations receive one automatically from `update.sh` if it
+  is missing; an existing non-empty value is preserved.
+- The key is passed only to PHP-FPM and the private engine service.
+- Signature injection remains disabled by default. Set
+  `OPENSIGWEAVE_ENABLED=y` in `mailcow.conf` only after the remaining
+  identity-sync and operational checks are complete.
 
 ## Image
 
@@ -47,30 +59,37 @@ The Dockerfile builds a non-root runtime. Its entrypoint initializes ownership
 of the persistent signature volume before dropping privileges. Alembic applies
 the namespaced schema before Uvicorn starts.
 
-## Current scope and limitations
+## Current implementation state
 
 Implemented:
 
 - MariaDB connection and isolated schema models.
 - Initial Alembic migration and MariaDB 10.11 integration tests.
-- Mailcow-mode selection and rule repositories, including MariaDB upsert
+- Mailcow-mode rule and selection repositories, including MariaDB upsert
   support for no-repeat variant and group rotation.
 - Sandboxed Jinja rendering, HTML allowlist sanitization and hardened
   versioned signature-file storage.
-- Private headless HTTP engine and request-boundary tests.
-- Non-root Docker image and persistent-storage entrypoint.
+- Private headless HTTP engine with a request contract that keeps the
+  authenticated mailbox distinct from the SMTP envelope sender and target
+  domain.
+- Private Compose service with no published port.
+- Dedicated engine-key provisioning for new and existing installations.
+- PHP adapter in Mailcow's existing footer endpoint. It keeps the native
+  Mailcow footer as fallback and does not add a second Rspamd MIME injector.
+- Signature volume backup/restore support.
 
-Not implemented yet:
+Still open:
 
-- Compose service and shared secret provisioning.
-- PHP adapter in Mailcow's existing `footer.php` pipeline.
-- Mapping from `mailbox.custom_attributes` to the engine profile contract.
-- Extension of the existing Mailcow LDAP identity sync.
+- Mapping the reserved `mailbox.custom_attributes.opensigweave` namespace.
+- Extension of Mailcow's existing LDAP identity sync for allowlisted AD profile
+  attributes, using the existing directory connection.
 - Native Mailcow management pages and role authorization.
-- Signature-volume backup/restore integration.
-- End-to-end Rspamd, SMTP, MIME and DKIM tests.
+- Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
+- Verification of trim-whitespace/device-signature policies and final DKIM
+  behavior in a real Mailcow test installation.
 
-The current GitHub Actions suite uses a disposable MariaDB 10.11 service. It
-validates the engine's schema, MariaDB selection repositories and private HTTP
-boundary. It does not validate a complete Mailcow deployment or production
-mail flow. Do not enable this service on a live Mailcow installation yet.
+GitHub Actions validates the Python schema, MariaDB selection repositories,
+HTTP boundary, Docker image build, PHP syntax and shell syntax. It does not
+yet validate a complete Mailcow deployment or production mail flow. Signature
+injection remains disabled by default; do not enable it before the remaining
+identity-sync and SMTP/DKIM tests pass.
