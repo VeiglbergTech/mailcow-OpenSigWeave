@@ -85,6 +85,9 @@ app = FastAPI(
     openapi_url=None,
 )
 
+from admin_api import router as admin_router
+app.include_router(admin_router)
+
 
 @app.get("/health")
 def health():
