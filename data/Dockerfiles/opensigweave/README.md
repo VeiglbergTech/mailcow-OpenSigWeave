@@ -39,8 +39,12 @@ The request distinguishes three Mailcow values:
 
 The caller is Mailcow's existing PHP footer adapter. The engine does not
 authenticate SMTP users itself and does not connect to LDAP, Active Directory,
-OIDC or Authentik. Profile values are passed by Mailcow from its own mailbox
-metadata.
+OIDC or Authentik. Profile values are passed by Mailcow from its own mailbox metadata. The existing
+LDAP identity-sync job now requests an explicit allowlist
+(`displayName`, `givenName`, `sn`, `title`, `telephoneNumber`, `mobile`,
+`department`) in the same paged LDAP search and persists the normalized values
+under `mailbox.custom_attributes.opensigweave`. It does not create another LDAP
+connection or bind. The existing footer reads this namespace at send time.
 
 ## Secret provisioning and activation
 
@@ -73,6 +77,10 @@ Implemented:
   authenticated mailbox distinct from the SMTP envelope sender and target
   domain.
 - Private Compose service with no published port.
+- Existing LDAP identity sync extended to map allowlisted AD profile fields into
+  the reserved OpenSigWeave custom-attributes namespace; unrelated
+  `custom_attributes` keys are preserved. The reserved namespace is sync-owned:
+  absent AD values clear on the next successful sync.
 - Dedicated engine-key provisioning for new and existing installations.
 - PHP adapter in Mailcow's existing footer endpoint. It keeps the native
   Mailcow footer as fallback and does not add a second Rspamd MIME injector.
@@ -80,16 +88,14 @@ Implemented:
 
 Still open:
 
-- Mapping the reserved `mailbox.custom_attributes.opensigweave` namespace.
-- Extension of Mailcow's existing LDAP identity sync for allowlisted AD profile
-  attributes, using the existing directory connection.
 - Native Mailcow management pages and role authorization.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification of trim-whitespace/device-signature policies and final DKIM
   behavior in a real Mailcow test installation.
 
 GitHub Actions validates the Python schema, MariaDB selection repositories,
-HTTP boundary, Docker image build, PHP syntax and shell syntax. It does not
+HTTP boundary, Docker image build, PHP syntax and shell syntax, the Mailcow
+PHP identity-sync unit suite, and the Compose configuration. It does not
 yet validate a complete Mailcow deployment or production mail flow. Signature
 injection remains disabled by default; do not enable it before the remaining
 identity-sync and SMTP/DKIM tests pass.
