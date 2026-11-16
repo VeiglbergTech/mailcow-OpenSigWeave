@@ -64,6 +64,15 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         domain = self.client.post("/admin/domains", headers=headers, json={"domain_name": domain_name})
         self.assertEqual(domain.status_code, 200, domain.text)
         domain_id = domain.json()["id"]
+        domain_update = self.client.put("/admin/domains/" + str(domain_id), headers=headers, json={
+            "domain_name": domain_name,
+            "is_active": True,
+            "allow_overrides": True,
+            "inject_on_replies": False,
+            "trim_whitespace": True,
+            "strip_device_signatures": False,
+        })
+        self.assertEqual(domain_update.status_code, 200, domain_update.text)
 
         signature = self.client.post("/admin/signatures", headers=headers, json={
             "name": f"Admin signature {suffix}",
@@ -121,11 +130,8 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(self.client.delete("/admin/rules/" + rule_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/groups/" + group_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/signatures/" + signature_id, headers=headers).status_code, 200)
-        with SessionLocal() as session:
-            stored_domain = session.get(DomainDB, domain_id)
-            if stored_domain is not None:
-                session.delete(stored_domain)
-                session.commit()
+        deleted_domain = self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
+        self.assertEqual(deleted_domain.status_code, 200, deleted_domain.text)
 
     def test_signature_endpoint_renders_using_mailcow_profile_and_domain(self):
         domain_name = f"engine-{os.getpid()}-{id(self)}.example.test"
