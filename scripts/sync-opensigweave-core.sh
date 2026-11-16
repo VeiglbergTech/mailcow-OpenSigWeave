@@ -35,6 +35,6 @@ for relative_path in "${FILES[@]}"; do
   cp "${source_file}" "${target_file}"
 done
 
-printf '%s\\n' "${UPSTREAM_COMMIT}" > "${REPOSITORY_ROOT}/data/Dockerfiles/opensigweave/UPSTREAM_COMMIT"
+printf '%s\n' "${UPSTREAM_COMMIT}" > "${REPOSITORY_ROOT}/data/Dockerfiles/opensigweave/UPSTREAM_COMMIT"
 echo "Synced provider-neutral OpenSigWeave modules from ${UPSTREAM_COMMIT}."
 echo "Review git diff, MariaDB-specific selection repositories, dependencies and tests before committing."
