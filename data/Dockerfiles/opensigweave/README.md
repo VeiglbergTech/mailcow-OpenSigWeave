@@ -55,7 +55,7 @@ connection or bind. The existing footer reads this namespace at send time.
 - The key is passed only to PHP-FPM and the private engine service.
 - Signature injection remains disabled by default. Set
   `OPENSIGWEAVE_ENABLED=y` in `mailcow.conf` only after the remaining
-  identity-sync and operational checks are complete.
+  operational and SMTP/DKIM checks are complete.
 
 ## Image
 
@@ -98,4 +98,4 @@ HTTP boundary, Docker image build, PHP syntax and shell syntax, the Mailcow
 PHP identity-sync unit suite, and the Compose configuration. It does not
 yet validate a complete Mailcow deployment or production mail flow. Signature
 injection remains disabled by default; do not enable it before the remaining
-identity-sync and SMTP/DKIM tests pass.
+operational and SMTP/DKIM tests pass.
