@@ -166,6 +166,34 @@ class EngineHttpBoundaryTests(unittest.TestCase):
                 )
 
 
+    def test_signature_preview_renders_sample_profile_and_sanitizes_html(self):
+        domain_name = f"preview-{os.getpid()}-{id(self)}.example.test"
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(
+                text("INSERT INTO domain (domain, active) VALUES (:domain, 1)"),
+                {"domain": domain_name},
+            )
+        try:
+            response = self.client.post(
+                f"/internal/admin/domains/{domain_name}/preview",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "html_content": "<p>{{ first_name }} {{ last_name }} - {{ email }}</p><script>alert(1)</script>",
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            payload = response.json()
+            self.assertIn("Max Mustermann", payload["html"])
+            self.assertIn(f"max@{domain_name}", payload["html"])
+            self.assertNotIn("<script", payload["html"])
+            self.assertNotIn("alert(1)", payload["html"])
+        finally:
+            with DATABASE_ENGINE.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM domain WHERE domain = :domain"),
+                    {"domain": domain_name},
+                )
+
     def test_signature_management_api_requires_engine_key(self):
         response = self.client.get("/internal/admin/domains/example.test/signatures")
         self.assertEqual(response.status_code, 401)
