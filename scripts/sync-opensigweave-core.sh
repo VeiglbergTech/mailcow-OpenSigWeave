@@ -3,7 +3,8 @@ set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UPSTREAM_URL="${OPEN_SIG_WEAVE_UPSTREAM_URL:-https://github.com/VeiglbergTech/OpenSigWeave.git}"
-UPSTREAM_REF="${OPEN_SIG_WEAVE_UPSTREAM_REF:-93b360225c5008fb60f6598e431ee2e3ff03842d}"
+# Pin to the reviewed beta candidate; override only for an intentional sync review.
+UPSTREAM_REF="${OPEN_SIG_WEAVE_UPSTREAM_REF:-29c86d5ba9371e067319867bf93b8ea820c0f71b}"
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TEMP_DIR}"' EXIT
 
@@ -34,6 +35,6 @@ for relative_path in "${FILES[@]}"; do
   cp "${source_file}" "${target_file}"
 done
 
-printf '%s\n' "${UPSTREAM_COMMIT}" > "${REPOSITORY_ROOT}/data/Dockerfiles/opensigweave/UPSTREAM_COMMIT"
+printf '%s\\n' "${UPSTREAM_COMMIT}" > "${REPOSITORY_ROOT}/data/Dockerfiles/opensigweave/UPSTREAM_COMMIT"
 echo "Synced provider-neutral OpenSigWeave modules from ${UPSTREAM_COMMIT}."
 echo "Review git diff, MariaDB-specific selection repositories, dependencies and tests before committing."
