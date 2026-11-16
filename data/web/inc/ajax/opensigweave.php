@@ -72,7 +72,7 @@ curl_setopt_array($handle, [
   CURLOPT_HTTPHEADER => [
     'Accept: application/json',
     'Content-Type: application/json',
-    'X-Engine-Key: ' . $engineKey,
+    'X-Admin-Key: ' . $engineKey,
   ],
 ]);
 if ($method !== 'GET') {
