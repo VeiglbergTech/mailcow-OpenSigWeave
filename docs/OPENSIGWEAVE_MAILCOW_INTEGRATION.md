@@ -36,7 +36,7 @@ The current Mailcow Compose stack already provides MariaDB, Redis, PHP-FPM, Ngin
 3. **Persistence adapter:** Move OpenSigWeave metadata to a dedicated set of MariaDB tables in Mailcow's existing database service. Use prefixed tables and versioned, idempotent migrations. Do not modify Mailcow's existing tables unless strictly necessary.
 4. **Signature file store:** Place current HTML and immutable versions under a dedicated Mailcow data directory. Confirm the normal backup script includes it; if not, extend the supported backup/restore path rather than adding a second backup system.
 5. **Engine integration:** Prefer reusing the existing OpenSigWeave engine behavior behind a private, non-public service boundary only if that is materially safer and smaller than porting it. Any internal service must have no independent public UI, no separate database and no standalone backup lifecycle. Evaluate a PHP-native engine versus a private Python API before committing to one.
-6. **Rspamd integration:** Reuse/adapt the Lua adapter only after validating Mailcow's actual Rspamd load order, authenticated SMTP identity, envelope-sender authorization, MIME behavior and final DKIM result.
+6. **Mail-flow integration:** Prefer extending Mailcow's existing `domain_wide_footer` / `MOO_FOOTER` / `footer.php` pipeline rather than installing a second independent Rspamd MIME injector. Preserve authenticated SMTP username versus envelope sender, existing exclusions, alias-domain handling, reply behavior and MIME rewriting. Only add a separate Lua plugin if the native pipeline cannot support the required behavior.
 
 ## Migration and compatibility requirements
 
@@ -100,7 +100,7 @@ The preferred initial storage option is a dedicated named volume for signature H
 
 A detailed source-level compatibility review is maintained in [`OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md`](OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md). It confirms that the existing signature catalog, filesystem version store, rule/selection modules, renderer, sanitizer and Rspamd adapter are reusable. It also records the MariaDB driver/schema, headless-startup, private transport, Rspamd loading and backup/restore blockers that must be resolved before runtime integration.
 
-The current Rspamd engine contract is `GET /api/signature/{email}` with the `X-Engine-Key` header. The existing Lua adapter already sends that header. The adapter currently requires HTTPS and verifies certificates, so the private Compose transport must preserve that security property or use an explicitly scoped alternative validated by tests.
+The current standalone Rspamd engine contract is `GET /api/signature/{email}` with the `X-Engine-Key` header. However, Mailcow already has a `MOO_FOOTER` prefilter that retrieves footer JSON through its internal `footer.php` endpoint and performs MIME rewriting itself. The integration should first test extending that existing provider to call the OpenSigWeave engine, rather than introducing a second Rspamd injector. The compatibility audit documents the exact source paths and remaining identity/transport checks.
 
 ## Current implementation state
 
