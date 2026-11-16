@@ -79,15 +79,21 @@ The adapter must preserve the distinction between authenticated username and env
 
 ## 4. User profile attributes (existing directory connection only)
 
-OpenSigWeave must not create its own LDAP/Active Directory connection.
+OpenSigWeave does not create its own LDAP/Active Directory connection.
 
-Use Mailcow's existing identity provider configuration and scheduled identity-sync connection. The current LDAP sync reads identity fields and one optional template-mapping attribute, but does not generally import `telephoneNumber`, `department`, `title` or similar profile fields into `mailbox.custom_attributes`.
+The Mailcow LDAP identity sync now requests the allowlisted profile attributes in the same paged LDAP search and through the same configured connection it already uses for identity synchronization. The current mapping is:
 
-Extend that existing sync to request an explicit allowlist of profile attributes in the same LDAP search and persist them under a reserved OpenSigWeave namespace in `mailbox.custom_attributes`. Preserve unrelated custom attributes and define how empty/deleted AD values and manual overrides are handled.
+- `givenName` → `first_name`
+- `sn` → `last_name`
+- `title` → `title`
+- `telephoneNumber` → `phone`, falling back to `mobile` when no telephoneNumber is present
+- `displayName`, `givenName`, `sn`, `title`, `telephoneNumber`, `mobile`, `department` → the generic `attributes` map
 
-The existing `footer.php` already reads `mailbox.custom_attributes` and returns them as footer `vars`, so the adapter can read the same values and pass only the configured allowlist to the private engine without contacting AD/LDAP at message-send time. The SOGo `c_telephonenumber` schema field must not be assumed to populate these footer variables. In Mailcow mode, the standalone OpenSigWeave identity-provider registry, cache and provider lookup are bypassed entirely.
+The existing SyncPlanner and SyncService pass this profile data to the Mailcow identity repository. It stores the normalized object under `mailbox.custom_attributes.opensigweave`. The update uses MariaDB JSON functions to replace only that reserved namespace while preserving unrelated `custom_attributes` keys. The namespace is owned by identity sync: values removed or cleared in AD disappear on the next successful sync; manual edits inside this namespace are overwritten. Manual values in other namespaces are preserved.
 
-Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `department`, `title`, `givenName`, `sn`. The final mapping and placeholder names are to be confirmed.
+The existing `footer.php` reads `mailbox.custom_attributes` at send time and passes the OpenSigWeave namespace to the private engine. No directory request occurs while sending mail. The SOGo `c_telephonenumber` field is not used as a substitute. In Mailcow mode, the standalone OpenSigWeave identity-provider registry, cache and provider lookup are bypassed entirely.
+
+This mapping currently applies to Mailcow's LDAP identity provider. Keycloak synchronization remains unchanged. Group membership/claims are not yet populated into the OpenSigWeave profile.
 
 ## 5. Critical behavior to preserve
 
