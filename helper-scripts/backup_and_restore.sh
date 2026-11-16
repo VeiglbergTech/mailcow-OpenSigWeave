@@ -11,8 +11,8 @@ if [[ ! ${1} =~ (backup|restore) ]]; then
   exit 1
 fi
 
-if [[ ${1} == "backup" && ! ${2} =~ (crypt|vmail|redis|rspamd|postfix|mysql|all|--delete-days) ]]; then
-  echo "Second parameter needs to be 'vmail', 'crypt', 'redis', 'rspamd', 'postfix', 'mysql', 'all' or '--delete-days'"
+if [[ ${1} == "backup" && ! ${2} =~ (crypt|vmail|redis|rspamd|postfix|mysql|opensigweave|all|--delete-days) ]]; then
+  echo "Second parameter needs to be 'vmail', 'crypt', 'redis', 'rspamd', 'postfix', 'mysql', 'opensigweave', 'all' or '--delete-days'"
   exit 1
 fi
 
@@ -175,6 +175,12 @@ function backup() {
         -v $(docker volume ls -qf name=^${CMPS_PRJ}_postfix-vol-1$):/postfix:ro,z \
         ${DEBIAN_DOCKER_IMAGE} /bin/tar --warning='no-file-ignored' --use-compress-program="zstd --rsyncable -T${THREADS}" -Pcvpf /backup/backup_postfix.tar.zst /postfix
       ;;&
+    opensigweave|all)
+      docker run --name mailcow-backup --rm \
+        -v ${BACKUP_LOCATION}/mailcow-${DATE}:/backup:z \
+        -v $(docker volume ls -qf name=^${CMPS_PRJ}_opensigweave-signatures-vol-1$):/opensigweave:ro,z \
+        ${DEBIAN_DOCKER_IMAGE} /bin/tar --warning='no-file-ignored' --use-compress-program="zstd --rsyncable -T${THREADS}" -Pcvpf /backup/backup_opensigweave.tar.zst /opensigweave
+      ;;&
     mysql|all)
       SQLIMAGE=$(grep -iEo '(mysql|mariadb)\:.+' ${COMPOSE_FILE})
       if [[ -z "${SQLIMAGE}" ]]; then
@@ -335,6 +341,21 @@ function restore() {
           ${DEBIAN_DOCKER_IMAGE} /bin/tar --use-compress-program="${DECOMPRESS_PROG}" -Pxvf /backup/${ARCHIVE_FILE}
         docker start $(docker ps -aqf name=rspamd-mailcow)
       fi
+      ;;
+    opensigweave)
+      docker stop $(docker ps -qf name=opensigweave-mailcow)
+      ARCHIVE_INFO=$(get_archive_info "backup_opensigweave" "${RESTORE_LOCATION}")
+      if [[ -z "${ARCHIVE_INFO}" ]]; then
+        echo -e "\\e[31mError: No backup file found for OpenSigWeave signatures (searched for .tar.zst and .tar.gz)\\e[0m"
+      else
+        ARCHIVE_FILE=$(echo "${ARCHIVE_INFO}" | cut -d'|' -f1)
+        DECOMPRESS_PROG=$(echo "${ARCHIVE_INFO}" | cut -d'|' -f2)
+        docker run -i --name mailcow-backup --rm \
+          -v ${RESTORE_LOCATION}:/backup:z \
+          -v $(docker volume ls -qf name=^${CMPS_PRJ}_opensigweave-signatures-vol-1$):/opensigweave:z \
+          ${DEBIAN_DOCKER_IMAGE} /bin/tar --use-compress-program="${DECOMPRESS_PROG}" -Pxvf /backup/${ARCHIVE_FILE}
+      fi
+      docker start $(docker ps -aqf name=opensigweave-mailcow)
       ;;
     postfix)
       docker stop $(docker ps -qf name=postfix-mailcow)
