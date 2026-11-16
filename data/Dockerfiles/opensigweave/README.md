@@ -89,11 +89,16 @@ Implemented:
 - PHP adapter in Mailcow's existing footer endpoint. It keeps the native
   Mailcow footer as fallback and does not add a second Rspamd MIME injector.
 - Signature volume backup/restore support.
+- Native Mailcow management page with admin-only session authorization and a CSRF-protected PHP gateway.
+- Domain and signature CRUD in the Mailcow UI, CKEditor 5 editing, weighted signature variants, and group/rule create, edit and delete workflows.
+- Private management API integration tests for domains, signatures, groups and rules.
 
 Still open:
 
-- Native Mailcow management page with admin-only session authorization, a CSRF-protected PHP gateway, domain and signature management, CKEditor 5, weighted variants, and group/rule creation, editing and deletion UI.
-- Full editing workflows for groups and rules, per-member weight editing, domain-admin delegation and dedicated management regression tests remain open.
+- Per-member weight editing in the browser UI (currently a shared weight can be applied to selected group members).
+- Domain-admin delegation and broader management regression coverage.
+- Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
+- Verification of trim-whitespace/device-signature policies and final DKIM behavior in a real Mailcow test installation.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification of trim-whitespace/device-signature policies and final DKIM
   behavior in a real Mailcow test installation.
