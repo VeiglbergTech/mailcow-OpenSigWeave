@@ -151,7 +151,7 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(stored_rule["priority"], 75)
         self.assertFalse(stored_rule["is_enabled"])
         self.assertEqual(len(stored_rule["conditions"]), 2)
-        self.assertEqual(stored_rule["conditions"][1]["kind"], "sender_equals")
+        self.assertEqual({condition["kind"] for condition in stored_rule["conditions"]}, {"domain_equals", "sender_equals"})
 
         self.assertEqual(self.client.delete("/admin/rules/" + rule_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/groups/" + group_id, headers=headers).status_code, 200)
