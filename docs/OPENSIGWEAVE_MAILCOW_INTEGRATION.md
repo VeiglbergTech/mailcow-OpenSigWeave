@@ -96,9 +96,9 @@ This option preserves the existing Python rule/selection/rendering/sanitization 
 
 The preferred initial storage option is a dedicated named volume for signature HTML and immutable version snapshots, with explicit additions to both backup and restore handling in `helper-scripts/backup_and_restore.sh`. This keeps the existing filesystem versioning model and makes Mailcow's existing backup command the only backup workflow. The volume must be included in backup selection, restore selection, validation and documentation; adding only the Compose volume is insufficient.
 
-## Source compatibility audit
+## Source compatibility audit and implementation plan
 
-A detailed source-level compatibility review is maintained in [`OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md`](OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md). It confirms that the existing signature catalog, filesystem version store, rule/selection modules, renderer, sanitizer and Rspamd adapter are reusable. It also records the MariaDB driver/schema, headless-startup, private transport, Rspamd loading and backup/restore blockers that must be resolved before runtime integration.
+A detailed source-level compatibility review is maintained in [`OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md`](OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md). The file-level target architecture and implementation order are in [`OPENSIGWEAVE_MAILCOW_IMPLEMENTATION_PLAN.md`](OPENSIGWEAVE_MAILCOW_IMPLEMENTATION_PLAN.md). It confirms that the existing signature catalog, filesystem version store, rule/selection modules, renderer, sanitizer and Rspamd adapter are reusable. It also records the MariaDB driver/schema, headless-startup, private transport, Rspamd loading and backup/restore blockers that must be resolved before runtime integration.
 
 The current standalone Rspamd engine contract is `GET /api/signature/{email}` with the `X-Engine-Key` header. However, Mailcow already has a `MOO_FOOTER` prefilter that retrieves footer JSON through its internal `footer.php` endpoint and performs MIME rewriting itself. The integration should first test extending that existing provider to call the OpenSigWeave engine, rather than introducing a second Rspamd injector. The compatibility audit documents the exact source paths and remaining identity/transport checks.
 
