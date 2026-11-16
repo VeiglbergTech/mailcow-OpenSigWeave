@@ -32,6 +32,12 @@ on:
       - beta
     paths:
       - "data/Dockerfiles/opensigweave/**"
+      - "data/web/admin/opensigweave.php"
+      - "data/web/inc/ajax/opensigweave.php"
+      - "data/web/templates/opensigweave.twig"
+      - "data/web/templates/admin.twig"
+      - "data/web/js/site/opensigweave.js"
+      - "data/web/css/site/admin.css"
       - "tests/python/**"
       - "tests/php/**"
       - "docker-compose.yml"
