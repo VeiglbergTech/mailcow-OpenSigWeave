@@ -12,7 +12,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from jinja2 import TemplateError
 from markupsafe import Markup
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import create_database_engine, create_session_factory
@@ -119,6 +120,33 @@ def render_mailcow_signature(
         raise HTTPException(status_code=400, detail="Invalid target domain")
 
     domain_part = target_domain
+
+    # Mailcow owns the domain lifecycle. An OpenSigWeave policy row is valid
+    # only while the canonical domain exists and is active in Mailcow itself.
+    try:
+        mailcow_domain = db.execute(
+            text(
+                "SELECT `active` FROM `domain` "
+                "WHERE `domain` = :domain LIMIT 1"
+            ),
+            {"domain": domain_part},
+        ).first()
+    except SQLAlchemyError as exc:
+        logger.exception("Could not verify target domain against Mailcow")
+        raise HTTPException(
+            status_code=503, detail="Mailcow domain directory unavailable"
+        ) from exc
+
+    if mailcow_domain is None or str(mailcow_domain[0]).strip().lower() not in {
+        "1", "true", "yes"
+    }:
+        return {
+            "html": "",
+            "inject_on_replies": False,
+            "trim_whitespace": True,
+            "strip_device_signatures": False,
+        }
+
     domain_obj = db.execute(
         select(DomainDB).where(func.lower(DomainDB.domain_name) == domain_part)
     ).scalar_one_or_none()
