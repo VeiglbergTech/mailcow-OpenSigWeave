@@ -30,7 +30,7 @@ The adapter must preserve the distinction between authenticated username and env
 
 ### Engine image and runtime
 
-- Add an OpenSigWeave engine build context under `data/Dockerfiles/opensigweave/`.
+- Add an OpenSigWeave engine build context under `data/Dockerfiles/opensigweave/`. Its source, build and lifecycle are part of this `mailcow-dockerized` repository and its existing Compose deployment; it must not require a separately installed OpenSigWeave checkout or external service.
 - Import only the Python modules needed by the API engine, persistence, signature storage, rules, selection, rendering and sanitization.
 - Add an explicit headless runtime mode. In headless mode, only health/readiness and the authenticated signature-resolution API are reachable; login, portal, static, admin, identity-provider and backup endpoints return 404.
 - Keep the engine on the existing `mailcow-network`; publish no host port.
@@ -40,6 +40,7 @@ The adapter must preserve the distinction between authenticated username and env
 ### MariaDB persistence
 
 - Add a dedicated `osw_` namespace to every OpenSigWeave table and the Alembic version table.
+- The source-level audit found that upstream currently has no MariaDB driver, has unbounded indexed `String()` columns in the initial schema, and uses `IS DISTINCT FROM` in migration 0012's downgrade guard. These are concrete blockers, not assumptions; see [the MariaDB compatibility audit](OPENSIGWEAVE_MARIADB_COMPATIBILITY_AUDIT.md).
 - Add the MySQL/MariaDB SQLAlchemy driver.
 - Correct unbounded indexed string columns and any PostgreSQL/SQLite-specific migration expressions.
 - Validate the complete migration chain on MariaDB 10.11 from an empty schema.
@@ -122,4 +123,4 @@ Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `depa
 
 ## 8. Current implementation state
 
-Only documentation has been committed so far. No engine files, Compose service, PHP adapter, native UI, database migrations or backup changes have been committed. The next code milestone is the MariaDB compatibility and headless-engine proof of concept.
+Only documentation has been committed so far. The MariaDB source-level audit is complete, but no engine files, Compose service, PHP adapter, native UI, database migrations or backup changes have been committed. No MariaDB runtime migration has been executed. The next code milestone is the Mailcow-specific persistence namespace and its MariaDB 10.11 test harness, followed by the headless engine proof of concept.
