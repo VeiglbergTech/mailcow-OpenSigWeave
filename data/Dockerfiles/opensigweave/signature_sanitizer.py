@@ -1,6 +1,7 @@
 """Allowlist-based HTML sanitization for untrusted signature templates."""
 import nh3
 
+
 _ALLOWED_TAGS = {
     "a", "b", "blockquote", "br", "center", "code", "div", "em", "font",
     "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "li", "ol",
@@ -45,6 +46,7 @@ _CLEANER = nh3.Cleaner(
 
 
 def sanitize_signature_html(html_content: str) -> str:
+    """Strip unsafe markup while preserving common email-signature layout markup."""
     if not isinstance(html_content, str):
         raise TypeError("html_content must be a string")
     return _CLEANER.clean(html_content)
