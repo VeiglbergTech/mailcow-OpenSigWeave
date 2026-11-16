@@ -87,6 +87,7 @@ $globalVariables = [
   'mailcow_locale' => @$_SESSION['mailcow_locale'],
   'mailcow_cc_role' => @$_SESSION['mailcow_cc_role'],
   'mailcow_cc_username' => @$_SESSION['mailcow_cc_username'],
+  'acl' => $_SESSION['acl'] ?? [],
   'is_master' => preg_match('/y|yes/i', getenv('MASTER')),
   'dual_login' => @$_SESSION['dual-login'],
   'ui_texts' => $UI_TEXTS,
