@@ -1,4 +1,5 @@
 name: OpenSigWeave MariaDB schema checks
+# The integration job uses a disposable MariaDB 10.11 instance.
 
 on:
   push:
