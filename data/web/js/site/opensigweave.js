@@ -5,6 +5,9 @@
   var signatureModal;
   var groupModal;
   var ruleModal;
+  var editingGroupMembers = {};
+  var initialGroupWeight = 1;
+  var editingRuleConditions = [];
   var $ = function (id) { return document.getElementById(id); };
 
   function node(tag, cls, value) {
@@ -226,7 +229,10 @@
       name: $('osw-group-name').value.trim(),
       domain_ids: selectedValues('osw-group-domains').map(Number),
       members: selectedValues('osw-group-members').map(function (id) {
-        return { signature_id: id, weight: Math.max(1, Number($('osw-group-weight').value) || 1), is_enabled: true };
+        var current = editingGroupMembers[id];
+        var enteredWeight = Math.max(1, Number($('osw-group-weight').value) || 1);
+        var weight = current && enteredWeight === initialGroupWeight ? current.weight : enteredWeight;
+        return { signature_id: id, weight: weight, is_enabled: current ? current.is_enabled : true };
       })
     };
     if (!payload.name || !payload.members.length) {
@@ -253,7 +259,12 @@
       signature_id: $('osw-rule-signature').value || null,
       group_id: action === 'GROUP' ? ($('osw-rule-group').value || null) : null,
       is_enabled: true,
-      conditions: condition && value ? [{ kind: condition, key: $('osw-rule-key').value.trim(), value: value }] : []
+      conditions: condition && value ? (function () {
+        var next = editingRuleConditions.slice();
+        var first = { kind: condition, key: $('osw-rule-key').value.trim(), value: value };
+        if (next.length) next[0] = first; else next.push(first);
+        return next;
+      })() : []
     };
     if (!payload.name || (action === 'GROUP' && !payload.group_id) || (condition && !value)) {
       notify('Bitte Regelname, Gruppenaktion und Bedingungswert prüfen.', 'warning');
@@ -271,9 +282,12 @@
     $('osw-group-id').value = group ? group.id : '';
     $('osw-group-title').textContent = group ? 'Signaturgruppe bearbeiten' : 'Signaturgruppe anlegen';
     $('osw-group-name').value = group ? group.name : '';
-    $('osw-group-weight').value = group && group.members.length ? group.members[0].weight : '1';
+    editingGroupMembers = {};
+    if (group) group.members.forEach(function (member) { editingGroupMembers[member.signature_id] = member; });
+    initialGroupWeight = group && group.members.length ? group.members[0].weight : 1;
+    $('osw-group-weight').value = String(initialGroupWeight);
     fillSelect('osw-group-members', catalog.signatures, 'name', 'id',
-      group ? group.members.filter(function (m) { return m.is_enabled; }).map(function (m) { return m.signature_id; }) : []);
+      group ? group.members.map(function (m) { return m.signature_id; }) : []);
     fillSelect('osw-group-domains', catalog.domains, 'domain_name', 'id',
       group ? catalog.domains.filter(function (d) { return group.domains.indexOf(d.domain_name) !== -1; }).map(function (d) { return d.id; }) : []);
     groupModal.show();
@@ -281,6 +295,7 @@
 
   function openRule(rule) {
     $('osw-rule-id').value = rule ? rule.id : '';
+    editingRuleConditions = rule ? rule.conditions.slice() : [];
     $('osw-rule-title').textContent = rule ? 'Regel bearbeiten' : 'Regel anlegen';
     $('osw-rule-name').value = rule ? rule.name : '';
     $('osw-rule-priority').value = rule ? String(rule.priority) : '0';
