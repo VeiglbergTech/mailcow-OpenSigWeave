@@ -131,6 +131,18 @@
             <label class="form-label" for="osw-signature-weight">Gewichtung</label>
             <input class="form-control" id="osw-signature-weight" type="number" min="1" max="100000" value="1">
           </div>
+          <div class="col-md-4">
+            <div class="form-check form-switch mt-4">
+              <input class="form-check-input" type="checkbox" id="osw-signature-active" checked>
+              <label class="form-check-label" for="osw-signature-active">Signatur aktiv</label>
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="form-check form-switch mt-4">
+              <input class="form-check-input" type="checkbox" id="osw-signature-variant-enabled" checked>
+              <label class="form-check-label" for="osw-signature-variant-enabled">Für Varianten-Auswahl freigegeben</label>
+            </div>
+          </div>
           <div class="col-12">
             <label class="form-label" for="osw-signature-domains">Zugeordnete Domains</label>
             <select class="form-select" id="osw-signature-domains" multiple size="4"></select>
@@ -153,6 +165,10 @@
     <div class="modal-header"><h5 class="modal-title" id="osw-group-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <input type="hidden" id="osw-group-id"><label class="form-label" for="osw-group-name">Gruppenname</label><input class="form-control mb-3" id="osw-group-name" maxlength="255">
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="osw-group-active" checked>
+        <label class="form-check-label" for="osw-group-active">Gruppe aktiv</label>
+      </div>
       <label class="form-label">Signaturen und individuelle Gewichtung</label>
       <div id="osw-group-member-list" class="mb-3"></div>
       <label class="form-label" for="osw-group-domains">Domains (leer = alle Domains)</label><select class="form-select" id="osw-group-domains" multiple size="4"></select>
