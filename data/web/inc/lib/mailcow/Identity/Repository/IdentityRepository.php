@@ -136,25 +136,17 @@ class IdentityRepository extends Repository
     {
         $encoded = json_encode($profile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $this->query(
-            "UPDATE `mailbox`
-             SET `custom_attributes` = JSON_SET(
+            "UPDATE \`mailbox\`
+             SET \`custom_attributes\` = JSON_SET(
                CASE
-                 WHEN JSON_VALID(`custom_attributes`) = 1 AND JSON_TYPE(`custom_attributes`) = 'OBJECT'
-                 THEN `custom_attributes`
+                 WHEN JSON_VALID(\`custom_attributes\`) = 1 AND JSON_TYPE(\`custom_attributes\`) = 'OBJECT'
+                 THEN \`custom_attributes\`
                  ELSE JSON_OBJECT()
                END,
                '$.opensigweave',
-               JSON_EXTRACT(:profile, '
+               JSON_EXTRACT(:profile, '$')
              )
-             WHERE `username` = :username",
-            ['profile' => $encoded, 'username' => $username]
-        );
-    }
-
-}
-)
-             )
-             WHERE `username` = :username",
+             WHERE \`username\` = :username",
             ['profile' => $encoded, 'username' => $username]
         );
     }
