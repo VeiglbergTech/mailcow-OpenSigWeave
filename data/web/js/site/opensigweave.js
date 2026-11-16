@@ -306,24 +306,22 @@
   async function saveRule() {
     var ruleId = $('osw-rule-id').value;
     var action = $('osw-rule-action').value;
-    var condition = $('osw-rule-condition').value;
-    var value = $('osw-rule-value').value.trim();
     var payload = {
       name: $('osw-rule-name').value.trim(),
       priority: Number($('osw-rule-priority').value) || 0,
       action_mode: action,
       signature_id: $('osw-rule-signature').value || null,
       group_id: action === 'GROUP' ? ($('osw-rule-group').value || null) : null,
-      is_enabled: true,
-      conditions: condition && value ? (function () {
-        var next = editingRuleConditions.slice();
-        var first = { kind: condition, key: $('osw-rule-key').value.trim(), value: value };
-        if (next.length) next[0] = first; else next.push(first);
-        return next;
-      })() : []
+      is_enabled: $('osw-rule-enabled').checked,
+      conditions: editingRuleConditions.map(function (condition) {
+        return { kind: condition.kind, key: condition.key.trim(), value: condition.value.trim() };
+      })
     };
-    if (!payload.name || (action === 'GROUP' && !payload.group_id) || (condition && !value)) {
-      notify('Bitte Regelname, Gruppenaktion und Bedingungswert prüfen.', 'warning');
+    var invalidCondition = payload.conditions.some(function (condition) {
+      return !condition.value || (['claim_equals', 'attribute_equals'].indexOf(condition.kind) !== -1 && !condition.key);
+    });
+    if (!payload.name || (action === 'GROUP' && !payload.group_id) || invalidCondition) {
+      notify('Bitte Regelname, Gruppenaktion und alle Bedingungsfelder prüfen.', 'warning');
       return;
     }
     try {
@@ -371,6 +369,71 @@
     groupModal.show();
   }
 
+  var ruleConditionTypes = [
+    { value: 'sender_equals', label: 'Absender exakt' },
+    { value: 'domain_equals', label: 'Domain exakt' },
+    { value: 'group_contains', label: 'Gruppe enthält' },
+    { value: 'claim_equals', label: 'Claim exakt' },
+    { value: 'attribute_equals', label: 'Attribut exakt' }
+  ];
+
+  function renderRuleConditions() {
+    var root = $('osw-rule-conditions');
+    root.replaceChildren();
+    if (!editingRuleConditions.length) {
+      root.append(node('div', 'small text-muted', 'Keine Bedingungen: Die Regel trifft unabhängig vom Absenderkontext zu.'));
+      return;
+    }
+    editingRuleConditions.forEach(function (condition, index) {
+      var row = node('div', 'row g-2 align-items-center mb-2');
+      var typeColumn = node('div', 'col-md-4');
+      var type = node('select', 'form-select form-select-sm');
+      type.setAttribute('aria-label', 'Bedingungstyp ' + (index + 1));
+      ruleConditionTypes.forEach(function (item) {
+        var option = node('option', '', item.label);
+        option.value = item.value;
+        option.selected = condition.kind === item.value;
+        type.append(option);
+      });
+      type.addEventListener('change', function () {
+        editingRuleConditions[index].kind = type.value;
+        renderRuleConditions();
+      });
+      typeColumn.append(type);
+
+      var keyColumn = node('div', 'col-md-3');
+      var key = node('input', 'form-control form-control-sm');
+      key.type = 'text';
+      key.value = condition.key || '';
+      key.placeholder = 'Schlüssel (Claim/Attribut)';
+      key.setAttribute('aria-label', 'Schlüssel für Bedingung ' + (index + 1));
+      key.disabled = ['claim_equals', 'attribute_equals'].indexOf(condition.kind) === -1;
+      key.addEventListener('input', function () { editingRuleConditions[index].key = key.value; });
+      keyColumn.append(key);
+
+      var valueColumn = node('div', 'col');
+      var value = node('input', 'form-control form-control-sm');
+      value.type = 'text';
+      value.value = condition.value || '';
+      value.placeholder = 'Vergleichswert';
+      value.setAttribute('aria-label', 'Wert für Bedingung ' + (index + 1));
+      value.addEventListener('input', function () { editingRuleConditions[index].value = value.value; });
+      valueColumn.append(value);
+
+      var removeColumn = node('div', 'col-auto');
+      var remove = node('button', 'btn btn-sm btn-outline-danger', 'Entfernen');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', 'Bedingung ' + (index + 1) + ' entfernen');
+      remove.addEventListener('click', function () {
+        editingRuleConditions.splice(index, 1);
+        renderRuleConditions();
+      });
+      removeColumn.append(remove);
+      row.append(typeColumn, keyColumn, valueColumn, removeColumn);
+      root.append(row);
+    });
+  }
+
   function openRule(rule) {
     $('osw-rule-id').value = rule ? rule.id : '';
     editingRuleConditions = rule ? rule.conditions.slice() : [];
@@ -378,9 +441,8 @@
     $('osw-rule-name').value = rule ? rule.name : '';
     $('osw-rule-priority').value = rule ? String(rule.priority) : '0';
     $('osw-rule-action').value = rule ? rule.action_mode : 'AUTO';
-    $('osw-rule-key').value = rule && rule.conditions.length ? rule.conditions[0].key : '';
-    $('osw-rule-value').value = rule && rule.conditions.length ? rule.conditions[0].value : '';
-    $('osw-rule-condition').value = rule && rule.conditions.length ? rule.conditions[0].kind : '';
+    $('osw-rule-enabled').checked = rule ? !!rule.is_enabled : true;
+    renderRuleConditions();
     fillSelect('osw-rule-signature', [{ id: '', name: 'Keine' }].concat(catalog.signatures), 'name', 'id',
       rule ? [rule.signature_id || ''] : ['']);
     fillSelect('osw-rule-group', [{ id: '', name: 'Bitte auswählen' }].concat(catalog.groups), 'name', 'id',
@@ -408,6 +470,10 @@
     $('osw-new-group').addEventListener('click', function () { openGroup(null); });
     $('osw-save-group').addEventListener('click', saveGroup);
     $('osw-new-rule').addEventListener('click', function () { openRule(null); });
+    $('osw-add-rule-condition').addEventListener('click', function () {
+      editingRuleConditions.push({ kind: 'domain_equals', key: '', value: '' });
+      renderRuleConditions();
+    });
     $('osw-save-rule').addEventListener('click', saveRule);
     await refresh();
   });
