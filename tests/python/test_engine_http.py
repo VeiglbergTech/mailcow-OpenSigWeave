@@ -21,8 +21,12 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
 from fastapi.testclient import TestClient
+import app as app_module
 from app import app, SessionLocal, DATABASE_ENGINE
-from models import DomainDB
+from models import (
+    DomainDB, SignatureDB, SignatureDomainDB, SignatureVariantDB, SignatureVersionDB,
+)
+from signature_storage import SignatureFileStore
 
 
 class EngineHttpBoundaryTests(unittest.TestCase):
@@ -44,6 +48,13 @@ class EngineHttpBoundaryTests(unittest.TestCase):
 
     def setUp(self):
         self.client = TestClient(app)
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.previous_store = app_module.signature_file_store
+        app_module.signature_file_store = SignatureFileStore(self.tempdir.name)
+
+    def tearDown(self):
+        app_module.signature_file_store = self.previous_store
+        self.tempdir.cleanup()
 
     def test_health_is_available_without_database_access(self):
         response = self.client.get("/health")
@@ -148,6 +159,143 @@ class EngineHttpBoundaryTests(unittest.TestCase):
                 if stored is not None:
                     session.delete(stored)
                     session.commit()
+            with DATABASE_ENGINE.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM domain WHERE domain = :domain"),
+                    {"domain": domain_name},
+                )
+
+
+    def test_signature_management_api_requires_engine_key(self):
+        response = self.client.get("/internal/admin/domains/example.test/signatures")
+        self.assertEqual(response.status_code, 401)
+
+    def test_signature_management_create_edit_version_restore_and_scope(self):
+        domain_name = f"manage-{os.getpid()}-{id(self)}.example.test"
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(
+                text("INSERT INTO domain (domain, active) VALUES (:domain, 1)"),
+                {"domain": domain_name},
+            )
+
+        headers = {"X-Engine-Key": os.environ["ENGINE_API_KEY"]}
+        signature_id = None
+        try:
+            created = self.client.post(
+                f"/internal/admin/domains/{domain_name}/signatures",
+                headers=headers,
+                json={
+                    "name": "Corporate",
+                    "mode": "PROFESSIONAL",
+                    "html_content": "<p>Hello {{ first_name }}</p><script>alert(1)</script>",
+                    "created_by": "admin@example.test",
+                },
+            )
+            self.assertEqual(created.status_code, 201, created.text)
+            payload = created.json()
+            signature_id = payload["id"]
+            self.assertEqual(payload["latest_version"], 1)
+
+            listed = self.client.get(
+                f"/internal/admin/domains/{domain_name}/signatures",
+                headers=headers,
+            )
+            self.assertEqual(listed.status_code, 200, listed.text)
+            self.assertEqual([item["id"] for item in listed.json()["signatures"]], [signature_id])
+
+            detail = self.client.get(
+                f"/internal/admin/domains/{domain_name}/signatures/{signature_id}",
+                headers=headers,
+            )
+            self.assertEqual(detail.status_code, 200, detail.text)
+            self.assertIn("Hello", detail.json()["html_content"])
+            self.assertNotIn("<script", detail.json()["html_content"])
+
+            added = self.client.post(
+                f"/internal/admin/domains/{domain_name}/signatures/{signature_id}/versions",
+                headers=headers,
+                json={"html_content": "<p>Version two</p>", "created_by": "admin@example.test"},
+            )
+            self.assertEqual(added.status_code, 201, added.text)
+            self.assertEqual(added.json()["version_number"], 2)
+
+            versions = self.client.get(
+                f"/internal/admin/domains/{domain_name}/signatures/{signature_id}/versions",
+                headers=headers,
+            )
+            self.assertEqual(versions.status_code, 200, versions.text)
+            self.assertEqual([item["version_number"] for item in versions.json()["versions"]], [2, 1])
+            first_version_id = versions.json()["versions"][1]["id"]
+
+            restored = self.client.post(
+                f"/internal/admin/domains/{domain_name}/signatures/{signature_id}/restore/{first_version_id}",
+                headers=headers,
+            )
+            self.assertEqual(restored.status_code, 201, restored.text)
+            self.assertEqual(restored.json()["version_number"], 3)
+
+            updated = self.client.put(
+                f"/internal/admin/domains/{domain_name}/signatures/{signature_id}",
+                headers=headers,
+                json={"is_active": False},
+            )
+            self.assertEqual(updated.status_code, 200, updated.text)
+            self.assertFalse(updated.json()["is_active"])
+
+            wrong_domain = self.client.get(
+                f"/internal/admin/domains/other-{domain_name}/signatures/{signature_id}",
+                headers=headers,
+            )
+            self.assertEqual(wrong_domain.status_code, 404)
+        finally:
+            if signature_id is not None:
+                with SessionLocal() as session:
+                    session.execute(
+                        text("DELETE FROM osw_signature_versions WHERE signature_id = :id"),
+                        {"id": signature_id},
+                    )
+                    session.execute(
+                        text("DELETE FROM osw_signature_variants WHERE signature_id = :id"),
+                        {"id": signature_id},
+                    )
+                    session.execute(
+                        text("DELETE FROM osw_signature_domains WHERE signature_id = :id"),
+                        {"id": signature_id},
+                    )
+                    session.execute(
+                        text("DELETE FROM osw_signatures WHERE id = :id"),
+                        {"id": signature_id},
+                    )
+                    session.execute(
+                        text("DELETE FROM osw_domains WHERE domain_name = :domain"),
+                        {"domain": domain_name},
+                    )
+                    session.commit()
+            with DATABASE_ENGINE.begin() as connection:
+                connection.execute(
+                    text("DELETE FROM domain WHERE domain = :domain"),
+                    {"domain": domain_name},
+                )
+
+    def test_signature_management_rejects_inactive_mailcow_domains(self):
+        domain_name = f"manage-inactive-{os.getpid()}-{id(self)}.example.test"
+        with DATABASE_ENGINE.begin() as connection:
+            connection.execute(
+                text("INSERT INTO domain (domain, active) VALUES (:domain, 0)"),
+                {"domain": domain_name},
+            )
+        try:
+            response = self.client.post(
+                f"/internal/admin/domains/{domain_name}/signatures",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "name": "Must not be created",
+                    "mode": "AUTO",
+                    "html_content": "<p>Inactive</p>",
+                },
+            )
+            self.assertEqual(response.status_code, 404)
+        finally:
             with DATABASE_ENGINE.begin() as connection:
                 connection.execute(
                     text("DELETE FROM domain WHERE domain = :domain"),
