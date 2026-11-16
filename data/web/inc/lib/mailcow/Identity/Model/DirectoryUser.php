@@ -20,7 +20,9 @@ class DirectoryUser
         public readonly string $name,
         public readonly bool $enabled,
         public readonly array $templateValues = [],
-        public readonly string $dn = ''
+        public readonly string $dn = '',
+        /** @var array<string, mixed> allowlisted directory profile attributes */
+        public readonly array $profileAttributes = []
     ) {
     }
 }
