@@ -25,6 +25,15 @@ on:
     paths:
       - "data/Dockerfiles/opensigweave/**"
       - "tests/python/**"
+      - "tests/php/**"
+      - "docker-compose.yml"
+      - "generate_config.sh"
+      - "update.sh"
+      - "scripts/**"
+      - "helper-scripts/backup_and_restore.sh"
+      - "data/conf/rspamd/dynmaps/footer.php"
+      - "data/conf/phpfpm/crons/identity-sync.php"
+      - "data/web/inc/lib/mailcow/Identity/**"
       - ".github/workflows/opensigweave-schema.yml"
 
 permissions:
@@ -98,7 +107,7 @@ jobs:
           MAILCOW_HOSTNAME: mail.example.test
           TZ: Etc/UTC
           COMPOSE_PROJECT_NAME: mailcow-dockerized
-        run: docker compose --env-file /dev/null config
+        run: docker compose --env-file /dev/null config > /tmp/mailcow-compose-config.yml
       - name: Run schema, MariaDB and HTTP boundary tests
         env:
           ENGINE_API_KEY: ci-engine-key-that-is-at-least-32-characters-long
