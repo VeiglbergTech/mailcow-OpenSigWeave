@@ -13,6 +13,7 @@ on:
       - "docker-compose.yml"
       - "generate_config.sh"
       - "update.sh"
+      - "scripts/**"
       - "helper-scripts/backup_and_restore.sh"
       - "data/conf/rspamd/dynmaps/footer.php"
       - "data/conf/phpfpm/crons/identity-sync.php"
@@ -80,7 +81,7 @@ jobs:
       - name: Check PHP footer adapter syntax
         run: docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/conf/rspamd/dynmaps/footer.php
       - name: Check modified shell scripts
-        run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh
+        run: bash -n generate_config.sh update.sh helper-scripts/backup_and_restore.sh scripts/sync-opensigweave-core.sh
       - name: Validate Mailcow Compose configuration
         env:
           DBNAME: mailcow
