@@ -135,21 +135,21 @@ Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `depa
 - Vendored sandboxed Jinja rendering, HTML allowlist sanitization and hardened immutable signature storage.
 - Added a private headless FastAPI engine. Its request contract distinguishes authenticated mailbox, SMTP envelope sender and Mailcow-resolved target domain. It accepts profile attributes from the trusted Mailcow caller and does not query LDAP/OIDC.
 - Added a non-root Docker image and an entrypoint that fixes named-volume ownership before dropping privileges.
-- Added a private Compose service with no published port and a dedicated engine key. New installs generate the key in generate_config.sh; update.sh adds it to existing installations if absent. Injection remains disabled by default.
+- Added a private Compose service with no published port and a dedicated engine key. New installs generate the key in generate_config.sh; update.sh adds or repairs it on existing installations. Injection remains disabled by default.
 - Extended Mailcow's existing PHP footer endpoint to call the engine only when explicitly enabled. The existing Mailcow footer remains the fallback, and Rspamd remains the only MIME injector.
 - Added backup/restore handling for the persistent signature volume.
-- Added GitHub Actions checks for MariaDB schema and selection, engine HTTP boundary, Docker image build, PHP syntax and shell syntax.
+- Extended the existing LDAP identity sync to request an explicit allowlist (displayName, givenName, sn, title, telephoneNumber, mobile, department) in its existing paged LDAP search and persist normalized profile values into mailbox.custom_attributes.opensigweave. No additional LDAP connection or bind is created. Unrelated custom_attributes keys are preserved; the reserved OpenSigWeave namespace is sync-owned and missing source values are cleared on the next successful sync.
+- Added GitHub Actions checks for MariaDB schema and selection, engine HTTP boundary, Docker image build, PHP syntax, 447 Mailcow PHP unit tests, shell syntax and Compose configuration.
 
 ### Not implemented yet
 
-- Mapping the reserved mailbox.custom_attributes.opensigweave namespace to the engine profile.
-- Extension of Mailcow's existing LDAP identity sync for allowlisted AD profile attributes, using its existing directory connection.
 - Native Mailcow management pages and role authorization.
-- End-to-end Rspamd, SMTP, MIME, reply, alias/send-as and DKIM tests.
+- Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification/implementation of trim-whitespace and device-signature policies in the Mailcow Rspamd path.
+- End-to-end SMTP, alias/send-as and DKIM tests on a disposable Mailcow deployment.
 
 The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow database until the complete integration and backup procedure have been reviewed.
 
-The earlier MariaDB schema and selection test run [#43846026542](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43846026542) passed 13 tests. A newer CI run also validates the engine image, PHP adapter and shell scripts; the final result for the latest commit must be checked before treating that full pipeline as passed.
+The MariaDB schema and selection test run [#43846026542](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43846026542) passed 13 Python tests. The full integration CI run [#43847734035](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43847734035) passed 447 PHP tests and 14 Python tests, as well as Docker image build, PHP lint and shell lint. Compose validation was added after that run and is being checked separately.
 
-Signature injection is disabled by default. The integration is not production-ready until the profile mapping, identity-sync extension and real SMTP/DKIM tests are complete.
+Signature injection is disabled by default. The integration is not production-ready until the native management UI and real SMTP/DKIM tests are complete.
