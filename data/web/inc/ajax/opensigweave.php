@@ -39,6 +39,10 @@ if ($path === '/admin/catalog' && $method === 'GET') {
   $allowed = true;
 } elseif (preg_match('~^/admin/signatures/[a-f0-9]{32}$~', $path) && in_array($method, ['PUT', 'DELETE'], true)) {
   $allowed = true;
+} elseif (in_array($path, ['/admin/groups', '/admin/rules'], true) && in_array($method, ['GET', 'POST'], true)) {
+  $allowed = true;
+} elseif (preg_match('~^/admin/(groups|rules)/[a-f0-9]{32}$~', $path) && in_array($method, ['PUT', 'DELETE'], true)) {
+  $allowed = true;
 }
 if (!$allowed) {
   http_response_code(400);
