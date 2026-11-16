@@ -117,8 +117,9 @@ def signature_json(db, row):
         SignatureVersionDB.signature_id == row.id
     ).order_by(SignatureVersionDB.version_number.desc()).limit(1)).scalar_one_or_none()
     variant = db.execute(select(SignatureVariantDB).where(
-        SignatureVariantDB.signature_id == row.id
-    ).order_by(SignatureVariantDB.pool_name).limit(1)).scalar_one_or_none()
+        SignatureVariantDB.signature_id == row.id,
+        SignatureVariantDB.pool_name == row.mode
+    ).limit(1)).scalar_one_or_none()
     html = ""
     if version:
         try:
@@ -222,6 +223,7 @@ def edit_signature(signature_id: str, payload: SignatureUpdate, db: Session = De
     renamed = False
     version_id = None
     try:
+        old_pool = row.mode
         if new_name != old_name:
             storage.rename_signature(old_name, new_name)
             renamed = True
@@ -242,7 +244,6 @@ def edit_signature(signature_id: str, payload: SignatureUpdate, db: Session = De
         if payload.is_active is not None:
             row.is_active = payload.is_active
         if payload.mode is not None or payload.weight is not None or payload.variant_enabled is not None:
-            old_pool = row.mode
             new_pool = payload.mode or old_pool
             variant = db.execute(select(SignatureVariantDB).where(
                 SignatureVariantDB.signature_id == signature_id,
