@@ -39,7 +39,7 @@ The request distinguishes three Mailcow values:
 
 The caller is Mailcow's existing PHP footer adapter. The engine does not
 authenticate SMTP users itself and does not connect to LDAP, Active Directory,
-OIDC or Authentik. Profile values are passed by Mailcow from its own mailbox metadata. The existing
+OIDC or Authentik. Profile values are passed by Mailcow from its own mailbox metadata. Domain policies are bound to Mailcow's canonical `domain.domain` records; the engine refuses to render for missing or inactive Mailcow domains. The existing
 LDAP identity-sync job now requests an explicit allowlist
 (`displayName`, `givenName`, `sn`, `title`, `telephoneNumber`, `mobile`,
 `department`) in the same paged LDAP search and persists the normalized values
