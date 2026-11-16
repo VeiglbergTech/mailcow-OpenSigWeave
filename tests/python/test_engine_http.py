@@ -58,7 +58,7 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         unauthorized = self.client.get("/admin/catalog")
         self.assertEqual(unauthorized.status_code, 401)
 
-        headers = {"X-Engine-Key": os.environ["ENGINE_API_KEY"]}
+        headers = {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
         suffix = uuid.uuid4().hex[:12]
         domain_name = f"admin-{suffix}.example.test"
         domain = self.client.post("/admin/domains", headers=headers, json={"domain_name": domain_name})
