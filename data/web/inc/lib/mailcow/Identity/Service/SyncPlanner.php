@@ -85,6 +85,11 @@ class SyncPlanner
             }
         }
         $groups = ($settings->groupSync && $listing->groups !== null) ? $listing->groups : null;
+        if ($settings->provider === Settings::LDAP) {
+            foreach ($matched as $username => $user) {
+                $plan->profileAttributes[(string)$username] = self::mailcowProfile($user);
+            }
+        }
         $this->planCreates($settings, $candidates, $groups ?? [], $state, $plan);
         $usernames = [];
         foreach ($matched as $username => $user) {
@@ -217,7 +222,13 @@ class SyncPlanner
                 self::conflict($plan, 'No template matches ' . $email);
                 continue;
             }
-            $plan->creates[] = ['email' => (string)$email, 'name' => self::name($user->name, ''), 'template' => $template, 'id' => $user->id];
+            $plan->creates[] = [
+                'email' => (string)$email,
+                'name' => self::name($user->name, ''),
+                'template' => $template,
+                'id' => $user->id,
+                'profile_attributes' => ($settings->provider === Settings::LDAP) ? self::mailcowProfile($user) : [],
+            ];
         }
     }
 
@@ -279,6 +290,22 @@ class SyncPlanner
                 $plan->updates[] = ['username' => (string)$username, 'name' => $name, 'template' => $legacy];
             }
         }
+    }
+
+    /** Mailcow-owned projection of the allowlisted LDAP profile; no provider request is made here. */
+    private static function mailcowProfile(DirectoryUser $user): array
+    {
+        $profile = $user->profileAttributes;
+        return [
+            'principal_id' => 'ldap:' . $user->id,
+            'first_name' => (string)($profile['first_name'] ?? ''),
+            'last_name' => (string)($profile['last_name'] ?? ''),
+            'title' => (string)($profile['title'] ?? ''),
+            'phone' => (string)($profile['phone'] ?? ''),
+            'groups' => [],
+            'claims' => [],
+            'attributes' => is_array($profile['attributes'] ?? null) ? $profile['attributes'] : [],
+        ];
     }
 
     /** Domain for a new group: the domain of its mail if it is a mailcow domain, else the default group domain */
