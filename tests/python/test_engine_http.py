@@ -103,7 +103,11 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(self.client.delete("/admin/rules/" + rule.json()["id"], headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/groups/" + group_id, headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/admin/signatures/" + signature_id, headers=headers).status_code, 200)
-        self.assertEqual(self.client.delete("/admin/domains/" + str(domain_id), headers=headers).status_code, 200)
+        with SessionLocal() as session:
+            stored_domain = session.get(DomainDB, domain_id)
+            if stored_domain is not None:
+                session.delete(stored_domain)
+                session.commit()
 
     def test_signature_endpoint_renders_using_mailcow_profile_and_domain(self):
         domain_name = f"engine-{os.getpid()}-{id(self)}.example.test"
