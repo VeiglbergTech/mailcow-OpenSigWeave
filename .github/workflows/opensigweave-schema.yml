@@ -1,0 +1,36 @@
+name: OpenSigWeave MariaDB schema checks
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "data/Dockerfiles/opensigweave/**"
+      - "tests/python/**"
+      - ".github/workflows/opensigweave-schema.yml"
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - "data/Dockerfiles/opensigweave/**"
+      - "tests/python/**"
+      - ".github/workflows/opensigweave-schema.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    name: Compile isolated schema for MariaDB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install engine database dependencies
+        run: python -m pip install -r data/Dockerfiles/opensigweave/requirements.txt
+      - name: Run schema tests
+        run: python -m unittest discover -s tests/python -v
