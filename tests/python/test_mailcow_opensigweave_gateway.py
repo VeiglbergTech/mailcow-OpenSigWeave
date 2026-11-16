@@ -1,5 +1,4 @@
 """Regression checks for the Mailcow OpenSigWeave PHP gateway allowlist."""
-import re
 import unittest
 from pathlib import Path
 
