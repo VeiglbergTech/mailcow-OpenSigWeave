@@ -55,7 +55,7 @@ Do not solve this by globally disabling TLS verification. Choose and test one of
 1. provide an internal HTTPS endpoint with a certificate trusted by the Rspamd container; or
 2. define a narrowly scoped private-network transport policy, keep the engine un-published, restrict network membership, and retain the shared engine key.
 
-Mailcow mounts `./data/conf/rspamd/lua/` read-only into Rspamd and mounts `./data/hooks/rspamd/` as its hook directory. The Rspamd entrypoint executes executable hook files. The exact supported Lua module loading directive and startup order still need a runtime/configuration test before changing the Rspamd configuration.
+Mailcow mounts `./data/conf/rspamd/plugins.d/` into Rspamd and mounts `./data/hooks/rspamd/` as its hook directory. The Rspamd entrypoint creates and prepares `plugins.d`, then executes executable hook files. Current Rspamd documentation confirms that custom Lua plugins belong in `/etc/rspamd/plugins.d/` and are enabled by a matching top-level configuration section. The existing module reads its settings from `rspamd_config:get_all_opt("opensigweave")`, so the intended integration is a plugin file in Mailcow's `data/conf/rspamd/plugins.d/` plus an `opensigweave { ... }` section in `data/conf/rspamd/rspamd.conf.local`. This still needs `rspamadm configtest` and a live Rspamd startup test in the target image. See the [Rspamd module documentation](https://docs.rspamd.com/getting-started/understanding-rspamd/) and [Lua plugin configuration guidance](https://docs.rspamd.com/guides/configuration/tool-selection/).
 
 ### 4. Native Mailcow UI and authorization
 
