@@ -62,6 +62,35 @@
       row.append(node('strong', '', domain.domain_name));
       row.append(node('span', domain.is_active ? 'badge text-bg-success' : 'badge text-bg-secondary',
         domain.is_active ? 'Aktiv' : 'Inaktiv'));
+      var edit = node('button', 'btn btn-sm btn-outline-light ms-auto', 'Bearbeiten');
+      edit.type = 'button';
+      edit.addEventListener('click', async function () {
+        var name = window.prompt('Domainname bearbeiten:', domain.domain_name);
+        if (name === null || !name.trim() || name.trim() === domain.domain_name) return;
+        try {
+          await api('PUT', '/admin/domains/' + domain.id, {
+            domain_name: name.trim(),
+            is_active: domain.is_active,
+            allow_overrides: domain.allow_overrides,
+            inject_on_replies: domain.inject_on_replies,
+            trim_whitespace: domain.trim_whitespace,
+            strip_device_signatures: domain.strip_device_signatures
+          });
+          await refresh();
+          notify('Domain aktualisiert.', 'success');
+        } catch (error) { notify(error.message, 'danger'); }
+      });
+      var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
+      remove.type = 'button';
+      remove.addEventListener('click', async function () {
+        if (!window.confirm('Domain ' + domain.domain_name + ' löschen? Zugeordnete Signaturen oder Gruppen müssen zuerst entfernt werden.')) return;
+        try {
+          await api('DELETE', '/admin/domains/' + domain.id);
+          await refresh();
+          notify('Domain gelöscht.', 'success');
+        } catch (error) { notify(error.message, 'danger'); }
+      });
+      row.append(edit, remove);
       root.append(row);
     });
   }
