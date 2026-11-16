@@ -151,7 +151,8 @@ services:
       image: ghcr.io/mailcow/phpfpm:8.2.35-2
       command: "php-fpm -d date.timezone=${TZ} -d expose_php=0"
       depends_on:
-        - redis-mailcow
+        redis-mailcow:
+          condition: service_started
         opensigweave-mailcow:
           condition: service_healthy
       volumes:
