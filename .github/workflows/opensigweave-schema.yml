@@ -101,7 +101,7 @@ jobs:
         with:
           php-version: "8.2"
           tools: composer:v2
-          extensions: mbstring, dom, xml, xmlwriter
+          extensions: mbstring, dom, xml, xmlwriter, pdo_mysql
       - name: Install Mailcow PHP test dependencies
         run: composer install --working-dir=tests/php --no-interaction --prefer-dist
       - name: Run Mailcow PHP unit tests
