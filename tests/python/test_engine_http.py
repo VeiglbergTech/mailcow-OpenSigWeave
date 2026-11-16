@@ -17,12 +17,18 @@ os.environ.setdefault("OPENSIGWEAVE_DB_PORT", "3306")
 os.environ.setdefault("ENGINE_API_KEY", "test-engine-key-that-is-at-least-32-characters-long")
 os.environ.setdefault("SIGNATURE_STORAGE_PATH", str(Path(tempfile.gettempdir()) / "opensigweave-engine-http-tests"))
 
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 from app import app, SessionLocal
 from models import DomainDB
 
 
 class EngineHttpBoundaryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        command.upgrade(Config(str(ENGINE_PATH / "alembic.ini")), "head")
+
     def setUp(self):
         self.client = TestClient(app)
 
