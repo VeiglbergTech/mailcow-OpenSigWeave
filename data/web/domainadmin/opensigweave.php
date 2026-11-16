@@ -14,8 +14,7 @@ $engine = new \Mailcow\OpenSigWeave\Service\EngineClient();
 $controller = new \Mailcow\OpenSigWeave\Controller\SignaturePageController(
   $domain_access,
   $engine,
-  $context,
-  $pdo
+  $context
 );
 $template_data = $controller->build('/domainadmin/opensigweave');
 
