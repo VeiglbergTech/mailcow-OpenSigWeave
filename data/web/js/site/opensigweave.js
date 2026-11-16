@@ -33,7 +33,7 @@
     return data;
   }
 
-  function fillSelect(id, values, labelKey, valueKey) {
+  function fillSelect(id, values, labelKey, valueKey, selected) {
     var select = $(id);
     select.replaceChildren();
     values.forEach(function (item) {
@@ -258,23 +258,31 @@
     } catch (error) { notify(error.message, 'danger'); }
   }
 
-  function openGroup() {
-    $('osw-group-name').value = '';
-    $('osw-group-weight').value = '1';
-    fillSelect('osw-group-members', catalog.signatures, 'name', 'id');
-    fillSelect('osw-group-domains', catalog.domains, 'domain_name', 'id');
+  function openGroup(group) {
+    $('osw-group-id').value = group ? group.id : '';
+    $('osw-group-title').textContent = group ? 'Signaturgruppe bearbeiten' : 'Signaturgruppe anlegen';
+    $('osw-group-name').value = group ? group.name : '';
+    $('osw-group-weight').value = group && group.members.length ? group.members[0].weight : '1';
+    fillSelect('osw-group-members', catalog.signatures, 'name', 'id',
+      group ? group.members.filter(function (m) { return m.is_enabled; }).map(function (m) { return m.signature_id; }) : []);
+    fillSelect('osw-group-domains', catalog.domains, 'domain_name', 'id',
+      group ? catalog.domains.filter(function (d) { return group.domains.indexOf(d.domain_name) !== -1; }).map(function (d) { return d.id; }) : []);
     groupModal.show();
   }
 
-  function openRule() {
-    $('osw-rule-name').value = '';
-    $('osw-rule-priority').value = '0';
-    $('osw-rule-action').value = 'AUTO';
-    $('osw-rule-condition').value = '';
-    $('osw-rule-key').value = '';
-    $('osw-rule-value').value = '';
-    fillSelect('osw-rule-signature', [{ id: '', name: 'Keine' }].concat(catalog.signatures), 'name', 'id');
-    fillSelect('osw-rule-group', [{ id: '', name: 'Bitte auswählen' }].concat(catalog.groups), 'name', 'id');
+  function openRule(rule) {
+    $('osw-rule-id').value = rule ? rule.id : '';
+    $('osw-rule-title').textContent = rule ? 'Regel bearbeiten' : 'Regel anlegen';
+    $('osw-rule-name').value = rule ? rule.name : '';
+    $('osw-rule-priority').value = rule ? String(rule.priority) : '0';
+    $('osw-rule-action').value = rule ? rule.action_mode : 'AUTO';
+    $('osw-rule-key').value = rule && rule.conditions.length ? rule.conditions[0].key : '';
+    $('osw-rule-value').value = rule && rule.conditions.length ? rule.conditions[0].value : '';
+    $('osw-rule-condition').value = rule && rule.conditions.length ? rule.conditions[0].kind : '';
+    fillSelect('osw-rule-signature', [{ id: '', name: 'Keine' }].concat(catalog.signatures), 'name', 'id',
+      rule ? [rule.signature_id || ''] : ['']);
+    fillSelect('osw-rule-group', [{ id: '', name: 'Bitte auswählen' }].concat(catalog.groups), 'name', 'id',
+      rule ? [rule.group_id || ''] : ['']);
     ruleModal.show();
   }
 
@@ -298,9 +306,9 @@
       catch (error) { notify(error.message, 'danger'); }
     });
     $('osw-save-signature').addEventListener('click', saveSignature);
-    $('osw-new-group').addEventListener('click', openGroup);
+    $('osw-new-group').addEventListener('click', function () { openGroup(null); });
     $('osw-save-group').addEventListener('click', saveGroup);
-    $('osw-new-rule').addEventListener('click', openRule);
+    $('osw-new-rule').addEventListener('click', function () { openRule(null); });
     $('osw-save-rule').addEventListener('click', saveRule);
     await refresh();
   });
