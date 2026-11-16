@@ -116,9 +116,11 @@ The current `dev` branch now contains the first working integration foundation:
 - Backup and restore support for the persistent signature volume.
 - A pinned upstream sync script for the provider-neutral OpenSigWeave modules.
 
-GitHub Actions currently passes 453 PHP unit tests and 16 Python tests, plus MariaDB migration/selection/profile tests, upstream sync reproducibility, Docker image build, PHP lint, shell lint and Compose validation.
+GitHub Actions passes 456 PHP tests (1,309 assertions) and 20 Python tests, including MariaDB 10.11-backed domain repository and engine API tests. The workflow also validates upstream source-sync reproducibility, Docker image build, PHP syntax, Twig template loading, shell lint and Compose configuration.
 
-A first native Mailcow UI entry point now exists for administrators and domain administrators. It lists active Mailcow domains and uses the normal Mailcow navigation and session. Domain administrators need the new `opensigweave` ACL permission, which defaults to disabled and can be granted from the existing domain-administrator edit dialog. The actual signature CRUD/editor, rules and preview UI are still outstanding, as are Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification. The integration has not been deployed against a live Mailcow instance and must not be enabled in production yet.
+The native Mailcow UI now provides administrator and domain-administrator routes, active-domain selection, signature listing and creation, HTML editing by creating a new immutable version, version history, restore-as-new-version and activation/deactivation. It uses the existing Mailcow session and a CSRF token. The internal FastAPI service exposes only private, engine-key-protected management endpoints; the PHP layer rechecks the caller's Mailcow role, ACL and domain assignment for every operation. The current editor is a source-level HTML textarea, not yet a rich-text editor.
+
+Still outstanding are the preview UI, rules and variant/group administration, rename/delete workflows, additional user-level override controls, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification. The integration has not been deployed against a live Mailcow instance and signature injection must remain disabled until those tests are complete.
 
 ## Domain-administrator permission
 
