@@ -57,6 +57,7 @@ services:
         - OPENSIGWEAVE_DB_HOST=mysql
         - OPENSIGWEAVE_DB_PORT=3306
         - ENGINE_API_KEY=${OPENSIGWEAVE_ENGINE_KEY}
+        - ADMIN_API_KEY=${OPENSIGWEAVE_ADMIN_KEY}
         - SIGNATURE_STORAGE_PATH=/var/lib/opensigweave
       volumes:
         - opensigweave-signatures-vol-1:/var/lib/opensigweave
@@ -194,6 +195,7 @@ services:
         - DBUSER=${DBUSER}
         - DBPASS=${DBPASS}
         - OPENSIGWEAVE_ENGINE_KEY=${OPENSIGWEAVE_ENGINE_KEY}
+        - OPENSIGWEAVE_ADMIN_KEY=${OPENSIGWEAVE_ADMIN_KEY}
         - OPENSIGWEAVE_ENABLED=${OPENSIGWEAVE_ENABLED:-n}
         - MAILCOW_HOSTNAME=${MAILCOW_HOSTNAME}
         - MAILCOW_PASS_SCHEME=${MAILCOW_PASS_SCHEME:-BLF-CRYPT}
