@@ -118,7 +118,7 @@ The current `dev` branch now contains the first working integration foundation:
 
 GitHub Actions currently passes 447 PHP unit tests and 15 Python tests, plus MariaDB migration/selection/profile tests, upstream sync reproducibility, Docker image build, PHP lint, shell lint and Compose validation.
 
-The native Mailcow signature-management UI, role/domain-specific authorization for signature operations, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification are still outstanding. The integration has not been deployed against a live Mailcow instance and must not be enabled in production yet.
+A first native Mailcow UI entry point now exists for administrators and domain administrators. It lists active Mailcow domains and uses the normal Mailcow navigation and session. Domain administrators need the new `opensigweave` ACL permission, which defaults to disabled and can be granted from the existing domain-administrator edit dialog. The actual signature CRUD/editor, rules and preview UI are still outstanding, as are Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification. The integration has not been deployed against a live Mailcow instance and must not be enabled in production yet.
 
 ## Domain-administrator permission
 
