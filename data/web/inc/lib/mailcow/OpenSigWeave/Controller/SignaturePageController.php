@@ -9,7 +9,6 @@ use Mailcow\Core\Context;
 use Mailcow\OpenSigWeave\Service\DomainAccessService;
 use Mailcow\OpenSigWeave\Service\EngineClient;
 use Mailcow\OpenSigWeave\Service\EngineClientException;
-use PDO;
 use Throwable;
 
 final class SignaturePageController
@@ -17,8 +16,7 @@ final class SignaturePageController
     public function __construct(
         private DomainAccessService $domainAccess,
         private EngineClient $engine,
-        private Context $context,
-        private PDO $pdo
+        private Context $context
     ) {
     }
 
@@ -36,6 +34,11 @@ final class SignaturePageController
         $successMessage = $_SESSION['opensigweave_flash'] ?? null;
         unset($_SESSION['opensigweave_flash']);
         $errorMessage = null;
+        $previewHtml = null;
+        $previewSource = null;
+        $createName = '';
+        $createMode = 'AUTO';
+        $createHtml = '';
 
         $selectedDomain = trim((string)($_POST['domain'] ?? $_GET['domain'] ?? ($domains[0] ?? '')));
         if ($selectedDomain !== '' && !in_array($selectedDomain, $domains, true)) {
@@ -43,7 +46,7 @@ final class SignaturePageController
             $errorMessage = 'Für diese Mailcow-Domain besteht keine OpenSigWeave-Berechtigung.';
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             try {
                 $submittedToken = (string)($_POST['csrf_token'] ?? '');
                 if (!hash_equals($csrfToken, $submittedToken)) {
@@ -94,6 +97,22 @@ final class SignaturePageController
                         ]);
                         $_SESSION['opensigweave_flash'] = 'Neue Signaturversion wurde gespeichert.';
                         $this->redirect($basePath, $selectedDomain, $signatureId);
+                    case 'preview':
+                        $html = (string)($_POST['html_content'] ?? '');
+                        if ($html === '' || strlen($html) > 65536) {
+                            throw new \InvalidArgumentException('Der HTML-Inhalt darf nicht leer sein und maximal 64 KiB umfassen.');
+                        }
+                        if ($signatureId !== '') {
+                            $this->engine->getDomainSignature($selectedDomain, $signatureId);
+                        }
+                        $preview = $this->engine->previewDomainSignature($selectedDomain, $html);
+                        $previewHtml = (string)($preview['html'] ?? '');
+                        $previewSource = $html;
+                        $createName = trim((string)($_POST['name'] ?? ''));
+                        $createMode = strtoupper(trim((string)($_POST['mode'] ?? 'AUTO')));
+                        $createHtml = $html;
+                        $successMessage = 'Die Vorschau wurde mit Beispieldaten erstellt.';
+                        break;
                     case 'toggle':
                         if ($signatureId === '') {
                             throw new \InvalidArgumentException('Keine Signatur ausgewählt.');
@@ -143,9 +162,12 @@ final class SignaturePageController
                 $listed = $this->engine->listDomainSignatures($selectedDomain);
                 $signatures = is_array($listed['signatures'] ?? null) ? $listed['signatures'] : [];
 
-                $requestedSignature = strtolower(trim((string)($_GET['signature'] ?? '')));
+                $requestedSignature = strtolower(trim((string)($_GET['signature'] ?? $_POST['signature_id'] ?? '')));
                 if ($requestedSignature !== '' && preg_match('/^[a-f0-9]{32}$/', $requestedSignature)) {
                     $selectedSignature = $this->engine->getDomainSignature($selectedDomain, $requestedSignature);
+                    if ($previewSource !== null) {
+                        $selectedSignature['html_content'] = $previewSource;
+                    }
                     $versionList = $this->engine->listDomainSignatureVersions($selectedDomain, $requestedSignature);
                     $versions = is_array($versionList['versions'] ?? null) ? $versionList['versions'] : [];
                 }
@@ -166,6 +188,10 @@ final class SignaturePageController
             'signatures' => $signatures,
             'selected_signature' => $selectedSignature,
             'versions' => $versions,
+            'preview_html' => $previewHtml,
+            'create_name' => $createName,
+            'create_mode' => $createMode,
+            'create_html' => $createHtml,
             'csrf_token' => $csrfToken,
             'success_message' => $successMessage,
             'error_message' => $errorMessage,
