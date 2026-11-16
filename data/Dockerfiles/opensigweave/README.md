@@ -92,7 +92,8 @@ Implemented:
 
 Still open:
 
-- Native Mailcow management pages and role authorization.
+- Native Mailcow management page with admin-only session authorization, CSRF-protected PHP gateway, domain configuration and signature CRUD with CKEditor 5.
+- Group and rule management UI/API, domain-admin delegation and complete management regression tests.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification of trim-whitespace/device-signature policies and final DKIM
   behavior in a real Mailcow test installation.
