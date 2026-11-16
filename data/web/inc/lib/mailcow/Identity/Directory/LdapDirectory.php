@@ -218,7 +218,7 @@ class LdapDirectory implements Directory
             'first_name' => self::first($entry, 'givenname') ?? '',
             'last_name' => self::first($entry, 'sn') ?? '',
             'title' => self::first($entry, 'title') ?? '',
-            'phone' => self::first($entry, 'telephonenumber') ?? '',
+            'phone' => self::first($entry, 'telephonenumber') ?? self::first($entry, 'mobile') ?? '',
             'attributes' => $attributes,
         ];
     }
