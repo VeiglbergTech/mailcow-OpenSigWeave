@@ -52,6 +52,58 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_private_admin_api_manages_domains_signatures_groups_and_rules(self):
+        unauthorized = self.client.get("/admin/catalog")
+        self.assertEqual(unauthorized.status_code, 401)
+
+        headers = {"X-Engine-Key": os.environ["ENGINE_API_KEY"]}
+        suffix = uuid.uuid4().hex[:12]
+        domain_name = f"admin-{suffix}.example.test"
+        domain = self.client.post("/admin/domains", headers=headers, json={"domain_name": domain_name})
+        self.assertEqual(domain.status_code, 200, domain.text)
+        domain_id = domain.json()["id"]
+
+        signature = self.client.post("/admin/signatures", headers=headers, json={
+            "name": f"Admin signature {suffix}",
+            "html_content": "<p>Hello {{ first_name }}</p>",
+            "mode": "AUTO",
+            "domain_ids": [domain_id],
+            "weight": 7,
+        })
+        self.assertEqual(signature.status_code, 200, signature.text)
+        signature_id = signature.json()["id"]
+        self.assertEqual(signature.json()["weight"], 7)
+        self.assertEqual(signature.json()["version"], 1)
+
+        group = self.client.post("/admin/groups", headers=headers, json={
+            "name": f"Admin group {suffix}",
+            "domain_ids": [domain_id],
+            "members": [{"signature_id": signature_id, "weight": 5, "is_enabled": True}],
+        })
+        self.assertEqual(group.status_code, 200, group.text)
+        group_id = group.json()["id"]
+
+        rule = self.client.post("/admin/rules", headers=headers, json={
+            "name": f"Admin rule {suffix}",
+            "priority": 50,
+            "action_mode": "GROUP",
+            "group_id": group_id,
+            "conditions": [{"kind": "domain_equals", "key": "", "value": domain_name}],
+        })
+        self.assertEqual(rule.status_code, 200, rule.text)
+
+        groups = self.client.get("/admin/groups", headers=headers)
+        self.assertEqual(groups.status_code, 200, groups.text)
+        self.assertTrue(any(item["id"] == group_id for item in groups.json()))
+        rules = self.client.get("/admin/rules", headers=headers)
+        self.assertEqual(rules.status_code, 200, rules.text)
+        self.assertTrue(any(item["name"] == f"Admin rule {suffix}" for item in rules.json()))
+
+        self.assertEqual(self.client.delete("/admin/rules/" + rule.json()["id"], headers=headers).status_code, 200)
+        self.assertEqual(self.client.delete("/admin/groups/" + group_id, headers=headers).status_code, 200)
+        self.assertEqual(self.client.delete("/admin/signatures/" + signature_id, headers=headers).status_code, 200)
+        self.assertEqual(self.client.delete("/admin/domains/" + str(domain_id), headers=headers).status_code, 200)
+
     def test_signature_endpoint_renders_using_mailcow_profile_and_domain(self):
         domain_name = f"engine-{os.getpid()}-{id(self)}.example.test"
         sender = f"alice@{domain_name}"
