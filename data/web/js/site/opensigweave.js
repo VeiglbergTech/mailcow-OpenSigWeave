@@ -5,6 +5,7 @@
   var signatureModal;
   var groupModal;
   var ruleModal;
+  var domainModal;
   var editingGroupMembers = {};
   var editingRuleConditions = [];
   var $ = function (id) { return document.getElementById(id); };
@@ -64,22 +65,7 @@
         domain.is_active ? 'Aktiv' : 'Inaktiv'));
       var edit = node('button', 'btn btn-sm btn-outline-light ms-auto', 'Bearbeiten');
       edit.type = 'button';
-      edit.addEventListener('click', async function () {
-        var name = window.prompt('Domainname bearbeiten:', domain.domain_name);
-        if (name === null || !name.trim() || name.trim() === domain.domain_name) return;
-        try {
-          await api('PUT', '/admin/domains/' + domain.id, {
-            domain_name: name.trim(),
-            is_active: domain.is_active,
-            allow_overrides: domain.allow_overrides,
-            inject_on_replies: domain.inject_on_replies,
-            trim_whitespace: domain.trim_whitespace,
-            strip_device_signatures: domain.strip_device_signatures
-          });
-          await refresh();
-          notify('Domain aktualisiert.', 'success');
-        } catch (error) { notify(error.message, 'danger'); }
-      });
+      edit.addEventListener('click', function () { openDomain(domain); });
       var remove = node('button', 'btn btn-sm btn-outline-danger', 'Löschen');
       remove.type = 'button';
       remove.addEventListener('click', async function () {
@@ -93,6 +79,43 @@
       row.append(edit, remove);
       root.append(row);
     });
+  }
+
+  function openDomain(domain) {
+    $('osw-domain-id').value = domain ? String(domain.id) : '';
+    $('osw-domain-title').textContent = domain ? 'Domain bearbeiten' : 'Domain hinzufügen';
+    $('osw-domain-name').value = domain ? domain.domain_name : '';
+    $('osw-domain-active').checked = domain ? !!domain.is_active : true;
+    $('osw-domain-overrides').checked = domain ? !!domain.allow_overrides : true;
+    $('osw-domain-replies').checked = domain ? !!domain.inject_on_replies : false;
+    $('osw-domain-trim').checked = domain ? !!domain.trim_whitespace : true;
+    $('osw-domain-strip-device').checked = domain ? !!domain.strip_device_signatures : false;
+    domainModal.show();
+  }
+
+  async function saveDomain() {
+    var id = $('osw-domain-id').value;
+    var payload = {
+      domain_name: $('osw-domain-name').value.trim(),
+      is_active: $('osw-domain-active').checked,
+      allow_overrides: $('osw-domain-overrides').checked,
+      inject_on_replies: $('osw-domain-replies').checked,
+      trim_whitespace: $('osw-domain-trim').checked,
+      strip_device_signatures: $('osw-domain-strip-device').checked
+    };
+    if (!payload.domain_name) {
+      notify('Bitte einen Domainnamen eingeben.', 'warning');
+      return;
+    }
+    var button = $('osw-save-domain');
+    button.disabled = true;
+    try {
+      await api(id ? 'PUT' : 'POST', id ? '/admin/domains/' + id : '/admin/domains', payload);
+      domainModal.hide();
+      await refresh();
+      notify(id ? 'Domain aktualisiert.' : 'Domain hinzugefügt.', 'success');
+    } catch (error) { notify(error.message, 'danger'); }
+    finally { button.disabled = false; }
   }
 
   function renderSignatures() {
@@ -367,6 +390,7 @@
 
   document.addEventListener('DOMContentLoaded', async function () {
     signatureModal = new bootstrap.Modal($('osw-signature-modal'));
+    domainModal = new bootstrap.Modal($('osw-domain-modal'));
     groupModal = new bootstrap.Modal($('osw-group-modal'));
     ruleModal = new bootstrap.Modal($('osw-rule-modal'));
     try {
@@ -378,12 +402,8 @@
     }
     $('osw-refresh').addEventListener('click', refresh);
     $('osw-new-signature').addEventListener('click', function () { openSignature(null); });
-    $('osw-new-domain').addEventListener('click', async function () {
-      var name = window.prompt('Domainname, z. B. example.org:');
-      if (!name) return;
-      try { await api('POST', '/admin/domains', { domain_name: name.trim() }); await refresh(); notify('Domain hinzugefügt.', 'success'); }
-      catch (error) { notify(error.message, 'danger'); }
-    });
+    $('osw-new-domain').addEventListener('click', function () { openDomain(null); });
+    $('osw-save-domain').addEventListener('click', saveDomain);
     $('osw-save-signature').addEventListener('click', saveSignature);
     $('osw-new-group').addEventListener('click', function () { openGroup(null); });
     $('osw-save-group').addEventListener('click', saveGroup);
