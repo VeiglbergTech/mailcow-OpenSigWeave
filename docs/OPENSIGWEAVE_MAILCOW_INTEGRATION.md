@@ -96,6 +96,12 @@ This option preserves the existing Python rule/selection/rendering/sanitization 
 
 The preferred initial storage option is a dedicated named volume for signature HTML and immutable version snapshots, with explicit additions to both backup and restore handling in `helper-scripts/backup_and_restore.sh`. This keeps the existing filesystem versioning model and makes Mailcow's existing backup command the only backup workflow. The volume must be included in backup selection, restore selection, validation and documentation; adding only the Compose volume is insufficient.
 
+## Source compatibility audit
+
+A detailed source-level compatibility review is maintained in [`OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md`](OPENSIGWEAVE_MAILCOW_COMPATIBILITY_AUDIT.md). It confirms that the existing signature catalog, filesystem version store, rule/selection modules, renderer, sanitizer and Rspamd adapter are reusable. It also records the MariaDB driver/schema, headless-startup, private transport, Rspamd loading and backup/restore blockers that must be resolved before runtime integration.
+
+The current Rspamd engine contract is `GET /api/signature/{email}` with the `X-Engine-Key` header. The existing Lua adapter already sends that header. The adapter currently requires HTTPS and verifies certificates, so the private Compose transport must preserve that security property or use an explicitly scoped alternative validated by tests.
+
 ## Current implementation state
 
-This document records the intended architecture only. No OpenSigWeave application code has been imported or integrated yet.
+The current `dev` branch contains the Mailcow upstream baseline and integration documentation only. The compatibility audit has been added, but no OpenSigWeave application code, PHP page, engine service, MariaDB migration, Rspamd hook or backup change has been imported or integrated yet.
