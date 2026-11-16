@@ -127,22 +127,26 @@ Initial candidate AD mappings: `displayName`, `telephoneNumber`, `mobile`, `depa
 
 ### Implemented on dev
 
-- Added a Mailcow-specific SQLAlchemy database factory using Mailcow's existing DBNAME, DBUSER and DBPASS values and the existing MariaDB service.
-- Added an isolated persistence model set under the osw_ table namespace.
-- Bounded all VARCHAR fields and kept unbounded HTML/rule content as TEXT.
-- Excluded the standalone LDAP/OIDC provider registry and identity cache from the Mailcow-mode model set.
-- Added an Alembic environment using osw_alembic_version and an initial schema revision.
-- Added static MySQL-dialect schema checks and a GitHub Actions MariaDB 10.11 integration job.
+- Added a Mailcow-specific SQLAlchemy database factory using Mailcow's existing DBNAME, DBUSER and DBPASS values and MariaDB.
+- Added an isolated persistence model set under the osw_ table namespace and an osw_alembic_version migration table.
+- Added an initial Alembic migration and static MySQL-dialect schema checks.
+- Vendored provider-neutral OpenSigWeave rule, selection and variant modules from upstream OpenSigWeave dev commit 93b360225c5008fb60f6598e431ee2e3ff03842d.
+- Added MariaDB-specific upsert support to per-user variant rotation and group rotation; the upstream implementations currently support PostgreSQL and SQLite only.
+- Vendored sandboxed Jinja rendering, HTML allowlist sanitization and hardened immutable signature storage.
+- Added a private headless FastAPI engine. Its request contract distinguishes authenticated mailbox, SMTP envelope sender and Mailcow-resolved target domain. It accepts profile attributes from the trusted Mailcow caller and does not query LDAP/OIDC.
+- Added a non-root Docker image and an entrypoint that fixes named-volume ownership before dropping privileges.
+- Added GitHub Actions tests for MariaDB 10.11 migration, selection rotation and the HTTP authentication/validation boundary.
 
 ### Not implemented yet
 
-- The HTTP/headless signature engine and its Mailcow-specific request contract.
-- The engine Dockerfile and Compose service.
-- The PHP adapter behind footer.php and the native Mailcow management pages.
-- Extension of Mailcow's existing identity sync for allowlisted AD profile attributes.
+- Compose service, API-key provisioning and service dependency wiring.
+- PHP adapter behind Mailcow's existing footer.php pipeline.
+- Mapping from mailbox.custom_attributes to the engine profile contract.
+- Extension of Mailcow's existing LDAP identity sync for allowlisted AD profile attributes.
+- Native Mailcow management pages and role authorization.
 - Signature-volume backup/restore changes.
-- End-to-end SMTP, MIME and DKIM tests.
+- End-to-end Rspamd, SMTP, MIME and DKIM tests.
 
-The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow installation until the complete upgrade and backup procedure has been reviewed.
+The initial migration currently creates the declared metadata tables with SQLAlchemy's create_all. This is suitable only as the first isolated schema bootstrap; all future schema changes must be explicit forward Alembic revisions. Do not run this migration against a live Mailcow database until the complete integration and backup procedure have been reviewed.
 
-The CI workflow has successfully executed the migration against a disposable MariaDB 10.11.19 service in [run #43844742174](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43844742174). All 8 Python tests passed, including initial migration, table/foreign-key isolation and idempotent upgrade. This validates this schema slice only; it does not establish full Mailcow integration or production readiness.
+The GitHub Actions run [#43846026542](https://github.com/VeiglbergTech/mailcow-OpenSigWeave/actions/runs/43846026542) passed all 13 tests against a disposable MariaDB 10.11 service. This validates the current schema, both MariaDB selection repositories and the private HTTP boundary. It does not establish a complete Mailcow deployment or production mail-flow readiness.
