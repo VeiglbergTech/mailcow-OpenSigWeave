@@ -81,3 +81,41 @@ table tbody tr td input[type="checkbox"] {
 .dkim-label {
   margin: 0 0 8px !important;
 }
+
+/* OpenSigWeave administration */
+.osw-admin .osw-panel,
+.osw-modal {
+  background: #202124;
+  color: #f3f3f3;
+  border: 1px solid #414141;
+  border-radius: 12px;
+}
+.osw-admin .osw-panel .card-header {
+  background: #292929;
+  border-bottom: 1px solid #414141;
+  padding: 1rem 1.25rem;
+}
+.osw-admin .osw-list { display: grid; gap: .65rem; }
+.osw-admin .osw-domain-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: .7rem .8rem;
+  background: #292929;
+  border: 1px solid #414141;
+  border-radius: 8px;
+}
+.osw-admin .osw-table { color: #f3f3f3; }
+.osw-admin .osw-table thead th { color: #bcbcbc; border-color: #414141; }
+.osw-admin .osw-table td { border-color: #383838; }
+.osw-admin .btn-danger { background: #d94b36; border-color: #d94b36; }
+.osw-modal .modal-header,
+.osw-modal .modal-footer { border-color: #414141; }
+.osw-modal .form-control,
+.osw-modal .form-select { background: #171819; color: #f3f3f3; border-color: #555; }
+.osw-modal .form-text { color: #aaa; }
+.osw-modal .ck-editor__editable { min-height: 360px; color: #202124; background: #fff; }
+.osw-modal .ck.ck-toolbar { background: #303030; border-color: #555; }
+.osw-modal .ck.ck-button { color: #eee; }
+.osw-modal .ck.ck-button:hover { background: #494949; }
