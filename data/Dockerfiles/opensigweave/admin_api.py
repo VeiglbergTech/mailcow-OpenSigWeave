@@ -425,6 +425,7 @@ def add_rule(payload: RuleInput, db: Session = Depends(get_db)):
                           action_mode=payload.action_mode, signature_id=payload.signature_id,
                           group_id=payload.group_id, is_enabled=payload.is_enabled)
     db.add(row)
+    db.flush()
     for condition in payload.conditions:
         db.add(SignatureRuleConditionDB(rule_id=rule_id, kind=condition.kind,
                                         key=condition.key, value=condition.value))
