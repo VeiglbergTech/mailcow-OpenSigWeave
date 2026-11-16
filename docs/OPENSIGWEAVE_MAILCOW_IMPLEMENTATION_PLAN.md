@@ -151,7 +151,7 @@ This mapping currently applies to Mailcow's LDAP identity provider. Keycloak syn
 
 ### Not implemented yet
 
-- Native Mailcow management pages and role authorization.
+- Native Mailcow management pages and role authorization, including a domain selector sourced exclusively from Mailcow's active domains.
 - Rspamd integration tests for reply handling, plain/HTML and multipart MIME.
 - Verification/implementation of trim-whitespace and device-signature policies in the Mailcow Rspamd path.
 - End-to-end SMTP, alias/send-as and DKIM tests on a disposable Mailcow deployment.
