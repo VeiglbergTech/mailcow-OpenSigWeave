@@ -31,7 +31,7 @@ class EngineHttpBoundaryTests(unittest.TestCase):
     def test_signature_endpoint_rejects_missing_engine_key(self):
         response = self.client.post(
             "/internal/signature",
-            json={"sender": "alice@example.test", "profile": {}},
+            json={"authenticated_user": "alice@example.test", "envelope_sender": "alice@example.test", "target_domain": "example.test", "profile": {}},
         )
         self.assertEqual(response.status_code, 401)
 
@@ -39,7 +39,7 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         response = self.client.post(
             "/internal/signature",
             headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
-            json={"sender": "not-an-email", "profile": {}},
+            json={"authenticated_user": "alice@example.test", "envelope_sender": "not-an-email", "target_domain": "example.test", "profile": {}},
         )
         self.assertEqual(response.status_code, 400)
 
