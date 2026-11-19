@@ -541,8 +541,8 @@
     groupModal = new bootstrap.Modal($('osw-group-modal'));
     ruleModal = new bootstrap.Modal($('osw-rule-modal'));
     try {
-      editor = await ClassicEditor.create($('osw-signature-html'), {
-        toolbar: ['undo', 'redo', '|', 'heading', 'bold', 'italic', '|', 'link', 'bulletedList', 'numberedList', '|', 'insertTable', 'blockQuote']
+      editor = await window.OpenSigWeaveEditor.create($('osw-signature-html'), {
+        placeholder: 'E-Mail-Signatur erstellen …'
       });
     } catch (error) {
       notify('CKEditor 5 konnte nicht geladen werden: ' + error.message, 'danger');

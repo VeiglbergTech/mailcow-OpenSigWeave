@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi.staticfiles import StaticFiles
 from jinja2 import TemplateError
 from markupsafe import Markup
 from pydantic import BaseModel, ConfigDict, Field
@@ -146,6 +147,7 @@ app = FastAPI(
 
 from admin_api import router as admin_router
 app.include_router(admin_router)
+app.mount("/assets", StaticFiles(directory="/app/assets", check_dir=False), name="opensigweave-assets")
 
 
 @app.get("/health")
