@@ -19,6 +19,7 @@ class RspamdOpenSigWeaveAdapterTests(unittest.TestCase):
         self.assertIn(marker, LUA)
         self.assertIn("task:get_message()", LUA)
         self.assertIn("rspamd_util.encode_base64", LUA)
+        self.assertIn('local rspamd_util = require "rspamd_util"', LUA)
         self.assertIn("/internal/process-message", LUA)
         self.assertIn("task:set_message(rewrite_body)", LUA)
         self.assertLess(LUA.index(marker), LUA.index("lua_mime.add_text_footer", LUA.index(marker)))
