@@ -12,9 +12,15 @@ from sqlalchemy.orm import Session
 
 from database import create_database_engine, create_session_factory
 from models import (
-    DomainDB, SignatureDB, SignatureDomainDB, SignatureVersionDB,
+    BrandingSettingsDB, DomainDB, SignatureDB, SignatureDomainDB, SignatureVersionDB,
     SignatureVariantDB, SignatureGroupDB, SignatureGroupDomainDB,
     SignatureGroupMemberDB, SignatureRuleDB, SignatureRuleConditionDB,
+)
+from core.branding import (
+    DEFAULT_APP_COLOR,
+    DEFAULT_APP_NAME,
+    decode_branding_data_url,
+    encode_branding_data_url,
 )
 from core.slug import slugify
 from signature_renderer import prepare_group_placeholders, render_signature_template
@@ -76,6 +82,16 @@ class SignaturePreviewInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     html_content: str = Field(min_length=1, max_length=65536)
     domain_id: int | None = None
+
+
+class BrandingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    app_name: str = Field(min_length=1, max_length=120)
+    app_color: str = Field(min_length=7, max_length=7)
+    logo_data_url: str | None = Field(default=None, max_length=900000)
+    favicon_data_url: str | None = Field(default=None, max_length=500000)
+    reset_logo: bool = False
+    reset_favicon: bool = False
 
 
 class GroupMemberInput(BaseModel):
@@ -174,6 +190,22 @@ def create_admin_version(db: Session, signature: SignatureDB, html_content: str,
             except Exception:
                 pass
         raise
+
+
+def branding_json(row: BrandingSettingsDB | None):
+    app_name = (row.app_name if row is not None else DEFAULT_APP_NAME) or DEFAULT_APP_NAME
+    app_color = (row.app_color if row is not None else DEFAULT_APP_COLOR) or DEFAULT_APP_COLOR
+    logo = encode_branding_data_url(row.logo_png, "image/png") if row is not None else None
+    favicon_mime = (row.favicon_mime or "image/x-icon") if row is not None else "image/x-icon"
+    favicon = encode_branding_data_url(row.favicon_data, favicon_mime) if row is not None else None
+    return {
+        "app_name": app_name,
+        "app_color": app_color,
+        "has_logo": bool(logo),
+        "has_favicon": bool(favicon),
+        "logo_data_url": logo,
+        "favicon_data_url": favicon,
+    }
 
 
 def signature_json(db, row):
@@ -610,3 +642,60 @@ def restore_signature_version(signature_id: str, version_id: str, db: Session = 
         raise HTTPException(status_code=503, detail="Signature asset unavailable") from exc
     restored = create_admin_version(db, signature, html_content, "mailcow-admin-restore")
     return version_json(restored)
+
+
+@router.get("/branding", dependencies=[Depends(require_key)])
+def get_branding(db: Session = Depends(get_db)):
+    return branding_json(db.get(BrandingSettingsDB, 1))
+
+
+@router.put("/branding", dependencies=[Depends(require_key)])
+def update_branding(payload: BrandingInput, db: Session = Depends(get_db)):
+    if not re.fullmatch(r"#[0-9A-Fa-f]{6}", payload.app_color):
+        raise HTTPException(status_code=422, detail="Brand color must be a six-digit hex color")
+    if payload.reset_logo and payload.logo_data_url:
+        raise HTTPException(status_code=422, detail="Choose either a logo upload or reset")
+    if payload.reset_favicon and payload.favicon_data_url:
+        raise HTTPException(status_code=422, detail="Choose either a favicon upload or reset")
+
+    row = db.get(BrandingSettingsDB, 1)
+    if row is None:
+        row = BrandingSettingsDB(id=1)
+        db.add(row)
+    row.app_name = payload.app_name.strip()
+    row.app_color = payload.app_color.lower()
+
+    try:
+        if payload.reset_logo:
+            row.logo_png = None
+        elif payload.logo_data_url:
+            row.logo_png, _ = decode_branding_data_url(
+                payload.logo_data_url,
+                allowed_mimes={"image/png"},
+                max_bytes=512 * 1024,
+            )
+
+        if payload.reset_favicon:
+            row.favicon_data = None
+            row.favicon_mime = None
+        elif payload.favicon_data_url:
+            favicon, favicon_mime = decode_branding_data_url(
+                payload.favicon_data_url,
+                allowed_mimes={"image/png", "image/x-icon", "image/vnd.microsoft.icon"},
+                max_bytes=256 * 1024,
+            )
+            row.favicon_data = favicon
+            row.favicon_mime = (
+                "image/x-icon"
+                if favicon_mime in {"image/x-icon", "image/vnd.microsoft.icon"}
+                else "image/png"
+            )
+        db.commit()
+        db.refresh(row)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+    return branding_json(row)

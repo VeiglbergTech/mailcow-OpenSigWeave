@@ -1,4 +1,5 @@
 """HTTP boundary smoke tests for the embedded engine."""
+import base64
 import os
 import sys
 import unittest
@@ -59,6 +60,30 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(unauthorized.status_code, 401)
 
         headers = {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
+
+        default_branding = self.client.get("/admin/branding", headers=headers)
+        self.assertEqual(default_branding.status_code, 200, default_branding.text)
+        self.assertTrue(default_branding.json()["app_name"])
+
+        png = b"\x89PNG\r\n\x1a\n" + b"mailcow-opensigweave"
+        logo_data_url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+        branding = self.client.put("/admin/branding", headers=headers, json={
+            "app_name": "Mailcow Signatures",
+            "app_color": "#123456",
+            "logo_data_url": logo_data_url,
+        })
+        self.assertEqual(branding.status_code, 200, branding.text)
+        self.assertEqual(branding.json()["app_name"], "Mailcow Signatures")
+        self.assertEqual(branding.json()["app_color"], "#123456")
+        self.assertTrue(branding.json()["has_logo"])
+        self.assertTrue(branding.json()["logo_data_url"].startswith("data:image/png;base64,"))
+
+        invalid_branding = self.client.put("/admin/branding", headers=headers, json={
+            "app_name": "Invalid",
+            "app_color": "red",
+        })
+        self.assertEqual(invalid_branding.status_code, 422, invalid_branding.text)
+
         suffix = uuid.uuid4().hex[:12]
         domain_name = f"admin-{suffix}.example.test"
         domain = self.client.post("/admin/domains", headers=headers, json={"domain_name": domain_name})

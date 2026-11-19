@@ -83,6 +83,7 @@ table tbody tr td input[type="checkbox"] {
 }
 
 /* OpenSigWeave administration */
+.osw-admin { --osw-accent: #ff7043; }
 .osw-admin .osw-panel,
 .osw-modal {
   background: #202124;
@@ -109,7 +110,17 @@ table tbody tr td input[type="checkbox"] {
 .osw-admin .osw-table { color: #f3f3f3; }
 .osw-admin .osw-table thead th { color: #bcbcbc; border-color: #414141; }
 .osw-admin .osw-table td { border-color: #383838; }
-.osw-admin .btn-danger { background: #d94b36; border-color: #d94b36; }
+.osw-admin .btn-danger { background: var(--osw-accent); border-color: var(--osw-accent); }
+.osw-admin .osw-brand-title { color: var(--osw-accent); }
+.osw-admin .osw-brand-logo { max-height: 48px; max-width: 220px; object-fit: contain; }
+.osw-admin .osw-brand-preview {
+  min-height: 220px;
+  padding: 1.25rem;
+  border: 1px solid #414141;
+  border-radius: 10px;
+  background: #171819;
+}
+.osw-admin .osw-brand-preview-logo { max-height: 100px; max-width: 100%; object-fit: contain; }
 .osw-modal .modal-header,
 .osw-modal .modal-footer { border-color: #414141; }
 .osw-modal .form-control,

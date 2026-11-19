@@ -3,9 +3,12 @@
 {% block content %}
 <div class="container-fluid osw-admin">
   <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
-    <div>
-      <h1 class="mb-1"><i class="bi bi-envelope-paper"></i> OpenSigWeave</h1>
-      <p class="text-muted mb-0">Zentrale Verwaltung dynamischer E-Mail-Signaturen</p>
+    <div class="d-flex align-items-center gap-3">
+      <img id="osw-brand-logo" class="d-none osw-brand-logo" alt="OpenSigWeave Branding-Logo">
+      <div>
+        <h1 class="mb-1 osw-brand-title"><i class="bi bi-envelope-paper"></i> <span id="osw-brand-name">OpenSigWeave</span></h1>
+        <p class="text-muted mb-0">Zentrale Verwaltung dynamischer E-Mail-Signaturen</p>
+      </div>
     </div>
     <div class="d-flex gap-2">
       <button class="btn btn-outline-secondary" id="osw-refresh"><i class="bi bi-arrow-clockwise"></i> Aktualisieren</button>
@@ -18,6 +21,12 @@
   {% endif %}
   <div id="osw-alert" class="alert d-none" role="status"></div>
 
+  <div class="btn-group mb-4" role="group" aria-label="OpenSigWeave Bereiche">
+    <button type="button" class="btn btn-outline-secondary active" id="osw-tab-management"><i class="bi bi-sliders"></i> Verwaltung</button>
+    <button type="button" class="btn btn-outline-secondary" id="osw-tab-branding"><i class="bi bi-palette"></i> Branding</button>
+  </div>
+
+  <div id="osw-management-view">
   <div class="row g-4 mb-4">
   <div class="col-12 col-xl-6"><section class="card osw-panel">
     <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-collection"></i> Signaturgruppen</strong><button class="btn btn-sm btn-outline-light" id="osw-new-group">Gruppe</button></div>
@@ -57,6 +66,53 @@
         </div>
       </section>
     </div>
+  </div>
+  </div>
+
+  <div id="osw-branding-view" class="d-none">
+    <section class="card osw-panel">
+      <div class="card-header"><strong><i class="bi bi-palette"></i> OpenSigWeave Branding</strong></div>
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-12 col-lg-7">
+            <div class="mb-3">
+              <label class="form-label" for="osw-branding-name">Anzeigename</label>
+              <input class="form-control" id="osw-branding-name" maxlength="120" value="OpenSigWeave">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="osw-branding-color">Akzentfarbe</label>
+              <input class="form-control form-control-color" type="color" id="osw-branding-color" value="#ff7043" title="Akzentfarbe auswählen">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="osw-branding-logo-file">Logo (PNG, maximal 512 KiB)</label>
+              <input class="form-control" type="file" id="osw-branding-logo-file" accept="image/png">
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="osw-branding-reset-logo">
+                <label class="form-check-label" for="osw-branding-reset-logo">Gespeichertes Logo entfernen</label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="osw-branding-favicon-file">Favicon (PNG oder ICO, maximal 256 KiB)</label>
+              <input class="form-control" type="file" id="osw-branding-favicon-file" accept="image/png,image/x-icon,.ico">
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="osw-branding-reset-favicon">
+                <label class="form-check-label" for="osw-branding-reset-favicon">Gespeichertes Favicon entfernen</label>
+              </div>
+              <div class="form-text">Das Favicon wird als OpenSigWeave-Branding gespeichert. Das globale Mailcow-Favicon wird nicht überschrieben.</div>
+            </div>
+            <button type="button" class="btn btn-danger" id="osw-save-branding"><i class="bi bi-floppy"></i> Branding speichern</button>
+          </div>
+          <div class="col-12 col-lg-5">
+            <div class="osw-brand-preview">
+              <div class="text-muted small mb-2">Vorschau</div>
+              <img id="osw-branding-logo-preview" class="d-none osw-brand-preview-logo" alt="Branding-Vorschau">
+              <div class="h4 mt-3 mb-1 osw-brand-title" id="osw-branding-name-preview">OpenSigWeave</div>
+              <div class="small text-muted" id="osw-branding-favicon-status">Kein eigenes Favicon gespeichert.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 

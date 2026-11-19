@@ -31,6 +31,8 @@ $path = (string)($input['path'] ?? '');
 $allowed = false;
 if ($path === '/admin/catalog' && $method === 'GET') {
   $allowed = true;
+} elseif ($path === '/admin/branding' && in_array($method, ['GET', 'PUT'], true)) {
+  $allowed = true;
 } elseif ($path === '/admin/domains' && $method === 'POST') {
   $allowed = true;
 } elseif (preg_match('~^/admin/domains/[0-9]+$~', $path) && in_array($method, ['PUT', 'DELETE'], true)) {
