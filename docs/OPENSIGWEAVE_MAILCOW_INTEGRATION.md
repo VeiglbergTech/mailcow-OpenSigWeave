@@ -127,6 +127,10 @@ Current validation covers Python compilation, the engine image build, PHP unit/l
 - **Standalone Postfix/Stalwart adapters:** they remain adapter-specific code and are not copied into Mailcow's Rspamd integration.
 - **Rich editor:** Mailcow now uses a locally bundled GPL CKEditor 49.1.0 build with the same email-HTML preservation boundary as standalone OpenSigWeave; browser-side CDN loading is not required.
 
+### DKIM ordering guard
+
+OpenSigWeave mutates the message inside Mailcow's existing `MOO_FOOTER` Rspamd prefilter. Mailcow's DKIM signing remains a later normal Rspamd symbol and signs the final MIME body/header representation, including `Content-Type`, `Content-Transfer-Encoding` and `MIME-Version`. CI contains a repository-level ordering guard plus a runtime Rspamd API smoke test. This reduces regression risk but does not replace a live SMTP submission/receipt test against a deployed Mailcow instance.
+
 ### Production status
 
 The management and persistence layers are CI-validated, but the integration is **not yet production-ready for automatic signature injection**. Real SMTP/DKIM end-to-end validation is still outstanding; parser-level MIME and reply-placement regression tests are now part of CI. Keep injection disabled on production systems until those checks are complete.
