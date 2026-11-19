@@ -122,11 +122,11 @@ Current validation covers Python compilation, the engine image build, PHP unit/l
 - **Standalone branding:** Mailcow owns the application shell and visual identity. OpenSigWeave therefore intentionally has no separate branding settings, logo, favicon or accent-color subsystem in this distribution.
 
 - **Scheduling:** standalone OpenSigWeave `dev` now has time-bounded signature/group scheduling. It is intentionally not enabled in the Mailcow distribution yet because the Mailcow behavior and UX are still being decided.
-- **Reply placement before quoted history:** standalone adapters have parser-based placement logic. Mailcow still uses Rspamd's `lua_mime.add_text_footer()`, which appends to text parts and does not provide the same placement semantics. This must not be replaced with an untested regex rewrite.
+- **Reply/MIME rewriting:** OpenSigWeave signatures use the internal parser-based MIME rewriter from the existing Rspamd prefilter. The native Mailcow footer fallback deliberately remains on Mailcow's upstream `lua_mime.add_text_footer()` path.
 - **Standalone identity-provider management, local/OIDC login and standalone backup tooling:** these remain non-goals because Mailcow supplies the corresponding platform services.
 - **Standalone Postfix/Stalwart adapters:** they remain adapter-specific code and are not copied into Mailcow's Rspamd integration.
-- **Full rich-editor parity:** the Mailcow UI still uses its existing CKEditor integration and has not yet adopted the standalone locally bundled CKEditor 49 editor stack.
+- **Rich editor:** Mailcow now uses a locally bundled GPL CKEditor 49.1.0 build with the same email-HTML preservation boundary as standalone OpenSigWeave; browser-side CDN loading is not required.
 
 ### Production status
 
-The management and persistence layers are CI-validated, but the integration is **not yet production-ready for automatic signature injection**. Real SMTP/MIME/DKIM end-to-end validation and the Mailcow-specific reply-placement strategy are still outstanding. Keep injection disabled on production systems until those checks are complete.
+The management and persistence layers are CI-validated, but the integration is **not yet production-ready for automatic signature injection**. Real SMTP/DKIM end-to-end validation is still outstanding; parser-level MIME and reply-placement regression tests are now part of CI. Keep injection disabled on production systems until those checks are complete.
