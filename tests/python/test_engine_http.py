@@ -24,7 +24,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from app import app, SessionLocal
-from models import DomainDB
+from models import DomainDB, SelectionStateDB
 
 
 class EngineHttpBoundaryTests(unittest.TestCase):
@@ -249,6 +249,106 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(self.client.delete("/admin/signatures/" + signature_id, headers=headers).status_code, 200)
         deleted_domain = self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
         self.assertEqual(deleted_domain.status_code, 200, deleted_domain.text)
+
+    def test_process_message_commits_rotation_only_after_successful_mime_rewrite(self):
+        headers = {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
+        suffix = uuid.uuid4().hex[:12]
+        domain_name = f"rotation-{suffix}.example.test"
+        sender = f"alice@{domain_name}"
+
+        domain_response = self.client.post(
+            "/admin/domains",
+            headers=headers,
+            json={"domain_name": domain_name},
+        )
+        self.assertEqual(domain_response.status_code, 200, domain_response.text)
+        domain_id = domain_response.json()["id"]
+
+        signature_ids = []
+        try:
+            for index in (1, 2):
+                response = self.client.post(
+                    "/admin/signatures",
+                    headers=headers,
+                    json={
+                        "name": f"Rotation {suffix} {index}",
+                        "html_content": f"<p>Signature {index}</p>",
+                        "mode": "AUTO",
+                        "domain_ids": [domain_id],
+                        "weight": 1,
+                    },
+                )
+                self.assertEqual(response.status_code, 200, response.text)
+                signature_ids.append(response.json()["id"])
+
+            normal_raw = (
+                b"From: alice@" + domain_name.encode("ascii") + b"\r\n"
+                b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+                b"Hello\r\n"
+            )
+            normal = self.client.post(
+                "/internal/process-message",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "message_b64": base64.b64encode(normal_raw).decode("ascii"),
+                    "authenticated_user": sender,
+                    "envelope_sender": sender,
+                    "target_domain": domain_name,
+                    "profile": {},
+                },
+            )
+            self.assertEqual(normal.status_code, 200, normal.text)
+            self.assertEqual(normal.headers.get("X-OpenSigWeave-Source"), "opensigweave")
+
+            with SessionLocal() as session:
+                state = session.query(SelectionStateDB).filter_by(
+                    sender_email=sender,
+                    pool_name="AUTO",
+                ).one()
+                committed_variant = state.last_variant_id
+                self.assertIsNotNone(committed_variant)
+
+            signed_raw = (
+                b"From: alice@" + domain_name.encode("ascii") + b"\r\n"
+                b"MIME-Version: 1.0\r\n"
+                b"Content-Type: multipart/signed; boundary=sig; protocol=application/pgp-signature\r\n\r\n"
+                b"--sig\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nSigned body\r\n"
+                b"--sig\r\nContent-Type: application/pgp-signature\r\n\r\nsignature\r\n"
+                b"--sig--\r\n"
+            )
+            signed = self.client.post(
+                "/internal/process-message",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "message_b64": base64.b64encode(signed_raw).decode("ascii"),
+                    "authenticated_user": sender,
+                    "envelope_sender": sender,
+                    "target_domain": domain_name,
+                    "profile": {},
+                },
+            )
+            self.assertEqual(signed.status_code, 204, signed.text)
+            self.assertEqual(
+                signed.headers.get("X-OpenSigWeave-Rewrite-Reason"),
+                "protected-or-malformed",
+            )
+
+            with SessionLocal() as session:
+                state = session.query(SelectionStateDB).filter_by(
+                    sender_email=sender,
+                    pool_name="AUTO",
+                ).one()
+                self.assertEqual(state.last_variant_id, committed_variant)
+        finally:
+            with SessionLocal() as session:
+                session.query(SelectionStateDB).filter_by(
+                    sender_email=sender,
+                    pool_name="AUTO",
+                ).delete(synchronize_session=False)
+                session.commit()
+            for signature_id in reversed(signature_ids):
+                self.client.delete("/admin/signatures/" + signature_id, headers=headers)
+            self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
 
     def test_signature_endpoint_renders_using_mailcow_profile_and_domain(self):
         domain_name = f"engine-{os.getpid()}-{id(self)}.example.test"
