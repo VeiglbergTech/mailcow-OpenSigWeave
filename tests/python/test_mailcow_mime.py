@@ -3,10 +3,68 @@ import unittest
 from email import policy
 from email.parser import BytesParser
 
-from mailcow_mime import rewrite_message
+from mailcow_mime import extract_selector_directive, rewrite_message
 
 
 class MailcowMimeRewriteTests(unittest.TestCase):
+    def test_valid_mode_header_precedes_body_marker(self):
+        raw = (
+            b"X-OpenSigWeave-Mode: INTERNAL\r\n"
+            b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            b"Hello\r\n<---[Holiday]--[abcd]--->\r\n"
+        )
+        directive = extract_selector_directive(raw)
+        self.assertEqual(directive.mode, "INTERNAL")
+        self.assertIsNone(directive.signature_name)
+        self.assertTrue(directive.marker_present)
+
+    def test_signature_header_precedes_body_marker_when_mode_is_absent(self):
+        raw = (
+            b"X-OpenSigWeave-Signature: Header Signature\r\n"
+            b"X-OpenSigWeave-Signature-Code: 1234\r\n"
+            b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            b"<---[Body Signature]--[abcd]--->\r\n"
+        )
+        directive = extract_selector_directive(raw)
+        self.assertEqual(directive.signature_name, "Header Signature")
+        self.assertEqual(directive.signature_code, "1234")
+        self.assertTrue(directive.marker_present)
+
+    def test_marker_in_quoted_history_is_not_selected_or_removed(self):
+        raw = (
+            b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            b"New answer\r\n\r\n> <---[Old Signature]--[abcd]--->\r\n"
+        )
+        directive = extract_selector_directive(raw)
+        self.assertFalse(directive.marker_present)
+        result = rewrite_message(
+            raw,
+            html_signature="",
+            plain_signature="",
+            inject_on_replies=True,
+            cleanup_signature_markers=directive.marker_present,
+        )
+        self.assertFalse(result.changed)
+        self.assertEqual(result.message, raw)
+
+    def test_body_marker_is_cleaned_from_newest_section(self):
+        raw = (
+            b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            b"Hello\r\n<---[Holiday]--[abcd]--->\r\n"
+        )
+        directive = extract_selector_directive(raw)
+        self.assertTrue(directive.marker_present)
+        result = rewrite_message(
+            raw,
+            html_signature="",
+            plain_signature="",
+            inject_on_replies=True,
+            cleanup_signature_markers=True,
+        )
+        self.assertTrue(result.changed)
+        body = BytesParser(policy=policy.default).parsebytes(result.message).get_content()
+        self.assertNotIn("<---[", body)
+
     def test_plain_reply_signature_is_inserted_before_quote(self):
         raw = (
             b"From: alice@example.org\r\n"

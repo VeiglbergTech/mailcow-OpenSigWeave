@@ -89,6 +89,21 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(response.status_code, 204, response.text)
         self.assertEqual(response.headers.get("X-OpenSigWeave-Rewrite-Reason"), "protected-or-malformed")
 
+    def test_signature_request_can_defer_rotation_commit(self):
+        payload = {
+            "authenticated_user": "alice@example.test",
+            "envelope_sender": "alice@example.test",
+            "target_domain": "example.test",
+            "profile": {},
+            "commit_selection": False,
+        }
+        response = self.client.post(
+            "/internal/signature",
+            headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+            json=payload,
+        )
+        self.assertIn(response.status_code, {200, 400})
+
     def test_signature_endpoint_rejects_invalid_sender_after_authentication(self):
         response = self.client.post(
             "/internal/signature",

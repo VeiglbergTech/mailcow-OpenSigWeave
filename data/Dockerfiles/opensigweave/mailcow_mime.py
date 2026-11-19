@@ -8,7 +8,11 @@ from email.parser import BytesParser
 from io import BytesIO
 import re
 
-from core.signature_placement import insert_signature
+from core.signature_placement import (
+    find_html_quote_boundary,
+    find_plain_quote_boundary,
+    insert_signature,
+)
 
 MAX_MESSAGE_BYTES = 20 * 1024 * 1024
 MAX_MESSAGE_B64_CHARS = ((MAX_MESSAGE_BYTES + 2) // 3) * 4 + 16
@@ -20,6 +24,15 @@ _PROTECTED_TYPES = {
     "application/pgp-encrypted",
 }
 _SUPPORTED_CTE = {"7bit", "8bit", "quoted-printable", "base64"}
+
+
+@dataclass(frozen=True)
+class SelectorDirective:
+    mode: str | None
+    signature_name: str | None
+    signature_code: str | None
+    marker_present: bool
+    signature_requested: bool
 
 
 @dataclass(frozen=True)
@@ -99,6 +112,82 @@ def _content_type_params(part) -> list[tuple[str, str]]:
     return preserved
 
 
+_VALID_MODES = {"AUTO", "PROFESSIONAL", "INTERNAL", "NONE"}
+_MARKER_LITERAL = re.compile(
+    r"<---\[([^\]\r\n]{1,255})\]--\[([^\]\r\n]{1,32})\]--->",
+    re.I,
+)
+_MARKER_ESCAPED = re.compile(
+    r"&lt;---\[([^\]\r\n]{1,255})\]--\[([^\]\r\n]{1,32})\]---&gt;",
+    re.I,
+)
+_MARKER_PREFIX_LITERAL = re.compile(r"<---\[[^\r\n<]{0,512}", re.I)
+_MARKER_PREFIX_ESCAPED = re.compile(r"&lt;---\[[^\r\n<]{0,512}", re.I)
+
+
+def _newest_section(content: str, *, html: bool) -> str:
+    boundary = find_html_quote_boundary(content) if html else find_plain_quote_boundary(content)
+    return content if boundary is None else content[:boundary]
+
+
+def extract_selector_directive(raw_message: bytes) -> SelectorDirective:
+    parsed = BytesParser(policy=policy.default).parsebytes(raw_message)
+
+    mode_values = [str(value).strip().upper() for value in parsed.get_all("X-OpenSigWeave-Mode", [])]
+    mode = mode_values[0] if len(mode_values) == 1 and mode_values[0] in _VALID_MODES else None
+
+    name_values = [str(value).strip() for value in parsed.get_all("X-OpenSigWeave-Signature", [])]
+    code_values = [str(value).strip() for value in parsed.get_all("X-OpenSigWeave-Signature-Code", [])]
+    header_signature_valid = len(name_values) == 1 and len(code_values) == 1
+    header_name = name_values[0] if header_signature_valid else None
+    header_code = code_values[0] if header_signature_valid else None
+
+    marker_pairs: set[tuple[str, str]] = set()
+    marker_present = False
+    for part in _editable_parts(parsed):
+        if part.is_multipart() or part.get_content_type().casefold() not in {"text/plain", "text/html"}:
+            continue
+        try:
+            content = part.get_content()
+        except (LookupError, UnicodeError, TypeError, ValueError):
+            continue
+        if not isinstance(content, str):
+            continue
+        current = _newest_section(content, html=part.get_content_type().casefold() == "text/html")
+        if _MARKER_PREFIX_LITERAL.search(current) or _MARKER_PREFIX_ESCAPED.search(current):
+            marker_present = True
+        for pattern in (_MARKER_LITERAL, _MARKER_ESCAPED):
+            for match in pattern.finditer(current):
+                marker_pairs.add((match.group(1).strip(), match.group(2).strip()))
+
+    if mode is not None:
+        return SelectorDirective(mode, None, None, marker_present, False)
+    if header_signature_valid:
+        return SelectorDirective(None, header_name, header_code, marker_present, True)
+    if marker_present:
+        if len(marker_pairs) == 1:
+            name, code = next(iter(marker_pairs))
+            return SelectorDirective(None, name, code, True, True)
+        # Malformed/ambiguous marker becomes an explicit invalid selector.
+        return SelectorDirective(None, "", "", True, True)
+    return SelectorDirective(None, None, None, False, False)
+
+
+def _remove_signature_markers(content: str, *, html: bool) -> tuple[str, bool]:
+    boundary = find_html_quote_boundary(content) if html else find_plain_quote_boundary(content)
+    before = content if boundary is None else content[:boundary]
+    after = "" if boundary is None else content[boundary:]
+    original = before
+
+    for pattern in (_MARKER_LITERAL, _MARKER_ESCAPED):
+        before = pattern.sub("", before)
+
+    # Remove malformed marker prefixes only from the newest message section.
+    before = _MARKER_PREFIX_LITERAL.sub("", before)
+    before = _MARKER_PREFIX_ESCAPED.sub("", before)
+    return before + after, before != original
+
+
 def rewrite_message(
     raw_message: bytes,
     *,
@@ -107,10 +196,11 @@ def rewrite_message(
     inject_on_replies: bool,
     trim_whitespace: bool = True,
     strip_device_signatures: bool = False,
+    cleanup_signature_markers: bool = False,
 ) -> RewriteResult:
     if len(raw_message) > MAX_MESSAGE_BYTES:
         raise ValueError("Message exceeds configured size limit")
-    if not html_signature and not plain_signature:
+    if not html_signature and not plain_signature and not cleanup_signature_markers:
         return RewriteResult(raw_message, False, "empty-signature")
 
     parsed = BytesParser(policy=policy.default).parsebytes(raw_message)
@@ -127,6 +217,7 @@ def rewrite_message(
         return RewriteResult(raw_message, False, "part-defect")
 
     prepared = []
+    marker_changed = False
     for part in parts:
         if part.is_multipart():
             continue
@@ -144,23 +235,26 @@ def rewrite_message(
             return RewriteResult(raw_message, False, "non-text-content")
 
         is_html = content_type == "text/html"
+        if cleanup_signature_markers:
+            content, removed_marker = _remove_signature_markers(content, html=is_html)
+            marker_changed = marker_changed or removed_marker
         if strip_device_signatures:
             content = _strip_device_signatures(content, html=is_html)
         if trim_whitespace:
             content = _trim_trailing_whitespace(content, html=is_html)
 
         signature = html_signature if is_html else plain_signature
-        if not signature:
-            return RewriteResult(raw_message, False, "missing-alternative-signature")
-        if trim_whitespace:
-            signature = _trim_trailing_whitespace(signature, html=is_html).lstrip()
-
-        updated, _quote_detected = insert_signature(
-            content,
-            signature,
-            html=is_html,
-            trim_whitespace=trim_whitespace,
-        )
+        if signature:
+            if trim_whitespace:
+                signature = _trim_trailing_whitespace(signature, html=is_html).lstrip()
+            updated, _quote_detected = insert_signature(
+                content,
+                signature,
+                html=is_html,
+                trim_whitespace=trim_whitespace,
+            )
+        else:
+            updated = content
         charset = part.get_content_charset() or "utf-8"
         try:
             encoded = updated.encode(charset)
@@ -177,6 +271,8 @@ def rewrite_message(
 
     if not prepared:
         return RewriteResult(raw_message, False, "no-editable-text-part")
+    if not (html_signature or plain_signature or marker_changed):
+        return RewriteResult(raw_message, False, "no-change")
 
     for part, updated, subtype, charset, cte, params in prepared:
         try:

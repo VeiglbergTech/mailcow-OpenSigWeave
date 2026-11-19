@@ -35,7 +35,12 @@ from signature_renderer import (
 )
 from signature_sanitizer import sanitize_signature_html
 from signature_storage import SignatureFileStore, SignatureStorageError
-from mailcow_mime import MAX_MESSAGE_B64_CHARS, MAX_MESSAGE_BYTES, rewrite_message
+from mailcow_mime import (
+    MAX_MESSAGE_B64_CHARS,
+    MAX_MESSAGE_BYTES,
+    extract_selector_directive,
+    rewrite_message,
+)
 
 logger = logging.getLogger("opensigweave")
 ENGINE_API_KEY = os.environ.get("ENGINE_API_KEY", "")
@@ -71,6 +76,7 @@ class SignatureRequest(BaseModel):
     mode: str | None = Field(default=None, max_length=32)
     signature_name: str | None = Field(default=None, max_length=255)
     signature_code: str | None = Field(default=None, max_length=4)
+    commit_selection: bool = True
 
 
 class MessageRewriteRequest(BaseModel):
@@ -81,6 +87,18 @@ class MessageRewriteRequest(BaseModel):
     inject_on_replies: bool = False
     trim_whitespace: bool = True
     strip_device_signatures: bool = False
+
+
+class ProcessMessageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    message_b64: str = Field(min_length=1, max_length=MAX_MESSAGE_B64_CHARS)
+    authenticated_user: str = Field(min_length=3, max_length=254)
+    envelope_sender: str = Field(min_length=3, max_length=254)
+    target_domain: str = Field(min_length=3, max_length=253)
+    profile: MailcowProfile = Field(default_factory=MailcowProfile)
+    fallback_html: str = Field(default="", max_length=65536)
+    fallback_plain: str = Field(default="", max_length=65536)
+    fallback_skip_replies: bool = False
 
 
 class _SignaturePlainTextParser(HTMLParser):
@@ -406,7 +424,7 @@ def render_mailcow_signature(
         logger.exception("Signature asset or template could not be processed")
         raise HTTPException(status_code=503, detail="Signature asset unavailable")
 
-    if selected_from_variant or selected_from_group:
+    if request.commit_selection and (selected_from_variant or selected_from_group):
         db.commit()
 
     return {
@@ -416,6 +434,95 @@ def render_mailcow_signature(
         "trim_whitespace": domain_obj.trim_whitespace,
         "strip_device_signatures": domain_obj.strip_device_signatures,
     }
+
+
+@app.post("/internal/process-message", dependencies=[Depends(require_engine_key)])
+def process_mailcow_message(
+    request: ProcessMessageRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        raw_message = base64.b64decode(request.message_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid base64 message") from exc
+    if len(raw_message) > MAX_MESSAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Message exceeds configured size limit")
+
+    directive = extract_selector_directive(raw_message)
+    signature_request = SignatureRequest(
+        authenticated_user=request.authenticated_user,
+        envelope_sender=request.envelope_sender,
+        target_domain=request.target_domain,
+        profile=request.profile,
+        mode=directive.mode,
+        signature_name=directive.signature_name,
+        signature_code=directive.signature_code,
+        commit_selection=False,
+    )
+    try:
+        rendered = render_mailcow_signature(signature_request, Response(), db)
+        selected_html = rendered.get("html", "")
+        selected_plain = rendered.get("plain", "")
+        selected_opensigweave = bool(selected_html or selected_plain)
+
+        explicit_none = directive.mode == "NONE"
+        explicit_signature = directive.signature_requested or directive.marker_present
+        suppress_fallback = explicit_none or explicit_signature
+
+        if selected_opensigweave:
+            html_signature = selected_html
+            plain_signature = selected_plain
+            inject_on_replies = bool(rendered.get("inject_on_replies", False))
+            trim_whitespace = bool(rendered.get("trim_whitespace", True))
+            strip_device_signatures = bool(rendered.get("strip_device_signatures", False))
+        elif not suppress_fallback and (request.fallback_html or request.fallback_plain):
+            html_signature = request.fallback_html
+            plain_signature = request.fallback_plain
+            inject_on_replies = not request.fallback_skip_replies
+            trim_whitespace = True
+            strip_device_signatures = False
+        else:
+            html_signature = ""
+            plain_signature = ""
+            inject_on_replies = True
+            trim_whitespace = True
+            strip_device_signatures = False
+
+        result = rewrite_message(
+            raw_message,
+            html_signature=html_signature,
+            plain_signature=plain_signature,
+            inject_on_replies=inject_on_replies,
+            trim_whitespace=trim_whitespace,
+            strip_device_signatures=strip_device_signatures,
+            cleanup_signature_markers=directive.marker_present,
+        )
+        if not result.changed:
+            db.rollback()
+            return Response(
+                status_code=204,
+                headers={
+                    "Cache-Control": "no-store, private",
+                    "X-OpenSigWeave-Rewrite-Reason": result.reason,
+                },
+            )
+
+        if selected_opensigweave:
+            db.commit()
+        else:
+            db.rollback()
+        return Response(
+            content=result.message,
+            media_type="message/rfc822",
+            headers={
+                "Cache-Control": "no-store, private",
+                "X-OpenSigWeave-Rewritten": "1",
+                "X-OpenSigWeave-Source": "opensigweave" if selected_opensigweave else "mailcow-fallback",
+            },
+        )
+    except Exception:
+        db.rollback()
+        raise
 
 
 def latest_version(db: Session, signature_id: str):
