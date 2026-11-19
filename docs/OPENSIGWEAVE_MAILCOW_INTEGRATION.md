@@ -104,17 +104,27 @@ The Mailcow-mode engine contract is `POST /internal/signature` with the `X-Engin
 
 ## Current implementation state
 
-The current `dev` branch now contains the first working integration foundation:
+The `beta` branch now contains a substantially working Mailcow-native management layer:
 
-- Mailcow-mode MariaDB models and an `osw_` table namespace with an isolated Alembic version table.
-- A private, headless FastAPI engine, built as a non-root Docker image and deployed as an internal Compose service with no published port.
-- MariaDB-compatible variant and group selection repositories, sandboxed rendering, HTML sanitization and versioned signature-file storage.
-- A private API key generated for new installations and provisioned by `update.sh` for existing installations. Signature injection remains disabled by default.
-- A PHP adapter in Mailcow's existing `footer.php` path. The native Mailcow footer remains the fallback and Rspamd remains the only MIME injector.
-- An extension to the existing LDAP identity sync that imports allowlisted AD profile attributes into `mailbox.custom_attributes.opensigweave` through the same LDAP search/connection.
-- Backup and restore support for the persistent signature volume.
-- A pinned upstream sync script for the provider-neutral OpenSigWeave modules.
+- OpenSigWeave runs as a private headless FastAPI engine against Mailcow's existing MariaDB service; no public engine port, second login system or PostgreSQL service is required.
+- OpenSigWeave-owned tables stay in the reserved `osw_` namespace with an isolated Alembic version table. The branding migration supports both fresh installations and upgrades from the original Mailcow OpenSigWeave schema.
+- The native Mailcow administration page manages domains, signatures, signature groups and rules through the existing Mailcow admin session and CSRF boundary.
+- Signature editing stores immutable filesystem versions. The Mailcow UI exposes a sandboxed server-rendered preview, version history and restore; restore creates a new current version instead of rewriting history.
+- Persistent OpenSigWeave branding is configurable from a dedicated Mailcow UI tab: display name, accent color, PNG logo and stored PNG/ICO favicon data. The OpenSigWeave logo and accent are applied inside the integration page; the global Mailcow favicon is intentionally not overwritten.
+- MariaDB-compatible variant/group rotation, rule evaluation, HTML sanitization, template rendering and Mailcow LDAP profile attributes are integrated.
+- Signature files remain in the Mailcow-managed persistent volume and are included in the existing Mailcow backup/restore path.
+- Mailcow's existing `MOO_FOOTER` / `footer.php` / Rspamd path remains the only message-body modifier. The standalone Postfix Milter and Stalwart adapters are not installed in this distribution.
 
-GitHub Actions currently passes 447 PHP unit tests and 15 Python tests, plus MariaDB migration/selection/profile tests, upstream sync reproducibility, Docker image build, PHP lint, shell lint and Compose validation.
+Current validation covers Python compilation, the engine image build, PHP unit/lint checks, Lua syntax, JavaScript syntax, Compose validation, MariaDB schema/migration tests and HTTP boundary tests.
 
-The native Mailcow signature-management UI, role/domain-specific authorization for signature operations, Rspamd/MIME/reply tests and end-to-end SMTP/DKIM verification are still outstanding. The integration has not been deployed against a live Mailcow instance and must not be enabled in production yet.
+### Deliberately not ported yet
+
+- **Scheduling:** standalone OpenSigWeave `dev` now has time-bounded signature/group scheduling. It is intentionally not enabled in the Mailcow distribution yet because the Mailcow behavior and UX are still being decided.
+- **Reply placement before quoted history:** standalone adapters have parser-based placement logic. Mailcow still uses Rspamd's `lua_mime.add_text_footer()`, which appends to text parts and does not provide the same placement semantics. This must not be replaced with an untested regex rewrite.
+- **Standalone identity-provider management, local/OIDC login and standalone backup tooling:** these remain non-goals because Mailcow supplies the corresponding platform services.
+- **Standalone Postfix/Stalwart adapters:** they remain adapter-specific code and are not copied into Mailcow's Rspamd integration.
+- **Full rich-editor parity:** the Mailcow UI still uses its existing CKEditor integration and has not yet adopted the standalone locally bundled CKEditor 49 editor stack.
+
+### Production status
+
+The management and persistence layers are CI-validated, but the integration is **not yet production-ready for automatic signature injection**. Real SMTP/MIME/DKIM end-to-end validation and the Mailcow-specific reply-placement strategy are still outstanding. Keep injection disabled on production systems until those checks are complete.
