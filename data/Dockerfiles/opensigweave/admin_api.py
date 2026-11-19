@@ -5,6 +5,7 @@ import uuid
 import re
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from jinja2 import TemplateError
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,8 +17,9 @@ from models import (
     SignatureGroupMemberDB, SignatureRuleDB, SignatureRuleConditionDB,
 )
 from core.slug import slugify
+from signature_renderer import prepare_group_placeholders, render_signature_template
 from signature_sanitizer import sanitize_signature_html
-from signature_storage import SignatureFileStore, SignatureStorageError
+from signature_storage import MAX_SIGNATURE_BYTES, SignatureFileStore, SignatureStorageError
 
 KEY = os.environ.get("ADMIN_API_KEY", "")
 if len(KEY) < 32:
@@ -70,6 +72,12 @@ class SignatureUpdate(BaseModel):
     variant_enabled: bool | None = None
 
 
+class SignaturePreviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    html_content: str = Field(min_length=1, max_length=65536)
+    domain_id: int | None = None
+
+
 class GroupMemberInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     signature_id: str = Field(min_length=32, max_length=32)
@@ -107,6 +115,65 @@ def domain_json(row):
     return {"id": row.id, "domain_name": row.domain_name, "is_active": row.is_active,
             "allow_overrides": row.allow_overrides, "inject_on_replies": row.inject_on_replies,
             "trim_whitespace": row.trim_whitespace, "strip_device_signatures": row.strip_device_signatures}
+
+
+def sanitize_admin_html(html_content: str) -> str:
+    sanitized = sanitize_signature_html(html_content)
+    if not sanitized.strip():
+        raise HTTPException(status_code=422, detail="Signature HTML is empty after sanitization")
+    if len(sanitized.encode("utf-8")) > MAX_SIGNATURE_BYTES:
+        raise HTTPException(status_code=422, detail="Signature HTML exceeds the maximum allowed size")
+    return sanitized
+
+
+def version_json(version):
+    return {
+        "id": version.id,
+        "version_number": version.version_number,
+        "sha256": version.sha256,
+        "size_bytes": version.size_bytes,
+        "created_by": version.created_by,
+        "created_at": version.created_at.isoformat() if version.created_at else None,
+    }
+
+
+def create_admin_version(db: Session, signature: SignatureDB, html_content: str, created_by: str | None):
+    sanitized = sanitize_admin_html(html_content)
+    latest = db.execute(
+        select(SignatureVersionDB)
+        .where(SignatureVersionDB.signature_id == signature.id)
+        .order_by(SignatureVersionDB.version_number.desc())
+        .limit(1)
+        .with_for_update()
+    ).scalar_one_or_none()
+    version_number = (latest.version_number if latest else 0) + 1
+    version_id = uuid.uuid4()
+    stored = None
+    try:
+        stored = storage.write(version_id, signature.name, sanitized)
+        version = SignatureVersionDB(
+            id=version_id.hex,
+            signature_id=signature.id,
+            version_number=version_number,
+            relative_path=stored.relative_path,
+            sha256=stored.sha256,
+            size_bytes=stored.size_bytes,
+            created_by=created_by,
+        )
+        db.add(version)
+        db.commit()
+        db.refresh(version)
+        return version
+    except Exception:
+        db.rollback()
+        if stored is not None:
+            try:
+                storage.delete(signature.name, version_id)
+                if latest is not None:
+                    storage.restore_current(signature.name, uuid.UUID(hex=latest.id), latest.sha256)
+            except Exception:
+                pass
+        raise
 
 
 def signature_json(db, row):
@@ -485,3 +552,61 @@ def remove_rule(rule_id: str, db: Session = Depends(get_db)):
     db.delete(row)
     db.commit()
     return {"deleted": rule_id}
+
+
+@router.post("/preview", dependencies=[Depends(require_key)])
+def preview_signature(payload: SignaturePreviewInput, db: Session = Depends(get_db)):
+    domain_name = "example.test"
+    if payload.domain_id is not None:
+        domain = db.get(DomainDB, payload.domain_id)
+        if domain is None:
+            raise HTTPException(status_code=422, detail="Unknown domain ID")
+        domain_name = domain.domain_name
+    try:
+        raw_template = sanitize_admin_html(payload.html_content)
+        raw_template, group_slots = prepare_group_placeholders(raw_template)
+        group_values = {template_key: "" for template_key in group_slots.values()}
+        rendered = render_signature_template(raw_template, {
+            "first_name": "Max",
+            "last_name": "Mustermann",
+            "title": "IT-Abteilung",
+            "phone": "+49 30 123456",
+            "email": "max@" + domain_name,
+            "domain_name": domain_name,
+            **group_values,
+        })
+    except TemplateError as exc:
+        raise HTTPException(status_code=422, detail="Invalid signature template") from exc
+    return {"html": rendered, "preview": True}
+
+
+@router.get("/signatures/{signature_id}/versions", dependencies=[Depends(require_key)])
+def list_signature_versions(signature_id: str, db: Session = Depends(get_db)):
+    signature = db.get(SignatureDB, signature_id)
+    if signature is None:
+        raise HTTPException(status_code=404, detail="Signature not found")
+    versions = db.execute(
+        select(SignatureVersionDB)
+        .where(SignatureVersionDB.signature_id == signature_id)
+        .order_by(SignatureVersionDB.version_number.desc())
+    ).scalars().all()
+    return {"versions": [version_json(version) for version in versions]}
+
+
+@router.post(
+    "/signatures/{signature_id}/versions/{version_id}/restore",
+    dependencies=[Depends(require_key)],
+)
+def restore_signature_version(signature_id: str, version_id: str, db: Session = Depends(get_db)):
+    signature = db.get(SignatureDB, signature_id)
+    if signature is None:
+        raise HTTPException(status_code=404, detail="Signature not found")
+    historical = db.get(SignatureVersionDB, version_id)
+    if historical is None or historical.signature_id != signature_id:
+        raise HTTPException(status_code=404, detail="Signature version not found")
+    try:
+        html_content = storage.read(signature.name, uuid.UUID(hex=historical.id), historical.sha256)
+    except (SignatureStorageError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="Signature asset unavailable") from exc
+    restored = create_admin_version(db, signature, html_content, "mailcow-admin-restore")
+    return version_json(restored)

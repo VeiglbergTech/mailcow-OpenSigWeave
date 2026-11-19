@@ -39,6 +39,12 @@ if ($path === '/admin/catalog' && $method === 'GET') {
   $allowed = true;
 } elseif (preg_match('~^/admin/signatures/[a-f0-9]{32}$~', $path) && in_array($method, ['PUT', 'DELETE'], true)) {
   $allowed = true;
+} elseif ($path === '/admin/preview' && $method === 'POST') {
+  $allowed = true;
+} elseif (preg_match('~^/admin/signatures/[a-f0-9]{32}/versions$~', $path) && $method === 'GET') {
+  $allowed = true;
+} elseif (preg_match('~^/admin/signatures/[a-f0-9]{32}/versions/[a-f0-9]{32}/restore$~', $path) && $method === 'POST') {
+  $allowed = true;
 } elseif (in_array($path, ['/admin/groups', '/admin/rules'], true) && in_array($method, ['GET', 'POST'], true)) {
   $allowed = true;
 } elseif (preg_match('~^/admin/(groups|rules)/[a-f0-9]{32}$~', $path) && in_array($method, ['PUT', 'DELETE'], true)) {

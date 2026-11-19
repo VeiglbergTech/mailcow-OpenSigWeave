@@ -225,6 +225,11 @@
 
   function openSignature(signature) {
     $('osw-signature-id').value = signature ? signature.id : '';
+    $('osw-preview-panel').classList.add('d-none');
+    $('osw-version-panel').classList.add('d-none');
+    $('osw-preview-frame').removeAttribute('srcdoc');
+    $('osw-version-list').replaceChildren();
+    $('osw-show-versions').disabled = !signature;
     $('osw-modal-title').textContent = signature ? 'Signatur bearbeiten' : 'Neue Signatur';
     $('osw-signature-name').value = signature ? signature.name : '';
     $('osw-signature-mode').value = signature ? signature.mode : 'AUTO';
@@ -267,6 +272,79 @@
       notify('Signatur gespeichert.', 'success');
     } catch (error) { notify(error.message, 'danger'); }
     finally { button.disabled = false; }
+  }
+
+  async function previewSignature() {
+    var html = editor ? editor.getData() : '';
+    if (!html.trim()) {
+      notify('Bitte zuerst Signaturinhalt eingeben.', 'warning');
+      return;
+    }
+    var selected = Array.from($('osw-signature-domains').selectedOptions);
+    var domainId = selected.length ? Number(selected[0].value) : null;
+    try {
+      var result = await api('POST', '/admin/preview', { html_content: html, domain_id: domainId });
+      $('osw-preview-frame').srcdoc = result.html || '';
+      $('osw-preview-panel').classList.remove('d-none');
+    } catch (error) {
+      notify(error.message, 'danger');
+    }
+  }
+
+  async function loadVersions() {
+    var signatureId = $('osw-signature-id').value;
+    if (!signatureId) {
+      notify('Versionsverlauf ist erst nach dem Speichern verfügbar.', 'info');
+      return;
+    }
+    try {
+      var result = await api('GET', '/admin/signatures/' + signatureId + '/versions');
+      var root = $('osw-version-list');
+      root.replaceChildren();
+      if (!result.versions.length) {
+        var emptyRow = node('tr');
+        var emptyCell = node('td', 'text-muted', 'Keine Versionen vorhanden.');
+        emptyCell.colSpan = 4;
+        emptyRow.append(emptyCell);
+        root.append(emptyRow);
+      }
+      result.versions.forEach(function (version, index) {
+        var row = node('tr');
+        row.append(node('td', 'fw-semibold', 'v' + version.version_number));
+        var created = version.created_at ? new Date(version.created_at).toLocaleString() : '—';
+        row.append(node('td', 'small', created));
+        row.append(node('td', 'small text-muted', version.created_by || '—'));
+        var action = node('td', 'text-end');
+        if (index === 0) {
+          action.append(node('span', 'badge text-bg-secondary', 'Aktuell'));
+        } else {
+          var restore = node('button', 'btn btn-sm btn-outline-warning', 'Wiederherstellen');
+          restore.type = 'button';
+          restore.addEventListener('click', function () { restoreVersion(version); });
+          action.append(restore);
+        }
+        row.append(action);
+        root.append(row);
+      });
+      $('osw-version-panel').classList.remove('d-none');
+    } catch (error) {
+      notify(error.message, 'danger');
+    }
+  }
+
+  async function restoreVersion(version) {
+    var signatureId = $('osw-signature-id').value;
+    if (!signatureId || !window.confirm('Version ' + version.version_number + ' als neue aktuelle Version wiederherstellen?')) return;
+    try {
+      await api('POST', '/admin/signatures/' + signatureId + '/versions/' + version.id + '/restore', {});
+      await refresh();
+      var current = catalog.signatures.find(function (item) { return item.id === signatureId; });
+      if (current && editor) editor.setData(current.html_content || '');
+      await loadVersions();
+      notify('Version wiederhergestellt. Der bisherige Verlauf bleibt erhalten.', 'success');
+    } catch (error) {
+      notify(error.message, 'danger');
+    }
   }
 
   async function deleteSignature(signature) {
@@ -474,6 +552,8 @@
     $('osw-new-domain').addEventListener('click', function () { openDomain(null); });
     $('osw-save-domain').addEventListener('click', saveDomain);
     $('osw-save-signature').addEventListener('click', saveSignature);
+    $('osw-preview-signature').addEventListener('click', previewSignature);
+    $('osw-show-versions').addEventListener('click', loadVersions);
     $('osw-new-group').addEventListener('click', function () { openGroup(null); });
     $('osw-save-group').addEventListener('click', saveGroup);
     $('osw-new-rule').addEventListener('click', function () { openRule(null); });

@@ -90,6 +90,39 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         signature_id = signature.json()["id"]
         self.assertEqual(signature.json()["weight"], 7)
         self.assertEqual(signature.json()["version"], 1)
+
+        preview = self.client.post("/admin/preview", headers=headers, json={
+            "html_content": "<p>Hello {{ first_name }} at {{ domain_name }}</p>",
+            "domain_id": domain_id,
+        })
+        self.assertEqual(preview.status_code, 200, preview.text)
+        self.assertIn("Hello Max", preview.json()["html"])
+        self.assertIn(domain_name, preview.json()["html"])
+
+        signature_v2 = self.client.put("/admin/signatures/" + signature_id, headers=headers, json={
+            "html_content": "<p>Second version {{ first_name }}</p>",
+        })
+        self.assertEqual(signature_v2.status_code, 200, signature_v2.text)
+        self.assertEqual(signature_v2.json()["version"], 2)
+
+        versions = self.client.get("/admin/signatures/" + signature_id + "/versions", headers=headers)
+        self.assertEqual(versions.status_code, 200, versions.text)
+        self.assertEqual([item["version_number"] for item in versions.json()["versions"]], [2, 1])
+        original_version = next(item for item in versions.json()["versions"] if item["version_number"] == 1)
+
+        restored = self.client.post(
+            "/admin/signatures/" + signature_id + "/versions/" + original_version["id"] + "/restore",
+            headers=headers,
+            json={},
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertEqual(restored.json()["version_number"], 3)
+
+        restored_catalog = self.client.get("/admin/catalog", headers=headers)
+        restored_signature = next(item for item in restored_catalog.json()["signatures"] if item["id"] == signature_id)
+        self.assertIn("Hello {{ first_name }}", restored_signature["html_content"])
+        self.assertEqual(restored_signature["version"], 3)
+
         signature_update = self.client.put("/admin/signatures/" + signature_id, headers=headers, json={
             "is_active": False,
             "variant_enabled": False,
