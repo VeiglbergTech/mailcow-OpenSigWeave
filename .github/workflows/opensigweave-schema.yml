@@ -119,6 +119,12 @@ jobs:
           sudo apt-get install --yes luajit
       - name: Check Rspamd Lua syntax
         run: luajit -b data/conf/rspamd/lua/rspamd.local.lua /tmp/rspamd.local.ljbc
+      - name: Exercise required Rspamd Lua APIs in the Mailcow image
+        run: |
+          docker run --rm \
+            --volume "$PWD/tests/rspamd_runtime_smoke.lua:/tmp/opensigweave-rspamd-smoke.lua:ro" \
+            ghcr.io/mailcow/rspamd:4.2.3-2 \
+            rspamadm lua -s /tmp/opensigweave-rspamd-smoke.lua
       - name: Check new Mailcow administration PHP syntax
         run: |
           docker run --rm --volume "$PWD:/src:ro" php:8.2-cli php -l /src/data/web/admin/opensigweave.php
