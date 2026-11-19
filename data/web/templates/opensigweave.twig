@@ -3,16 +3,13 @@
 {% block content %}
 <div class="container-fluid osw-admin">
   <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3">
-    <div class="d-flex align-items-center gap-3">
-      <img id="osw-brand-logo" class="d-none osw-brand-logo" alt="OpenSigWeave Branding-Logo">
-      <div>
-        <h1 class="mb-1 osw-brand-title"><i class="bi bi-envelope-paper"></i> <span id="osw-brand-name">OpenSigWeave</span></h1>
-        <p class="text-muted mb-0">Zentrale Verwaltung dynamischer E-Mail-Signaturen</p>
-      </div>
+    <div>
+      <h1 class="mb-1"><i class="bi bi-envelope-paper"></i> OpenSigWeave</h1>
+      <p class="text-muted mb-0">Zentrale Verwaltung dynamischer E-Mail-Signaturen</p>
     </div>
     <div class="d-flex gap-2">
       <button class="btn btn-outline-secondary" id="osw-refresh"><i class="bi bi-arrow-clockwise"></i> Aktualisieren</button>
-      <button class="btn btn-danger" id="osw-new-signature"><i class="bi bi-plus-lg"></i> Neue Signatur</button>
+      <button class="btn btn-primary" id="osw-new-signature"><i class="bi bi-plus-lg"></i> Neue Signatur</button>
     </div>
   </div>
 
@@ -21,28 +18,22 @@
   {% endif %}
   <div id="osw-alert" class="alert d-none" role="status"></div>
 
-  <div class="btn-group mb-4" role="group" aria-label="OpenSigWeave Bereiche">
-    <button type="button" class="btn btn-outline-secondary active" id="osw-tab-management"><i class="bi bi-sliders"></i> Verwaltung</button>
-    <button type="button" class="btn btn-outline-secondary" id="osw-tab-branding"><i class="bi bi-palette"></i> Branding</button>
-  </div>
-
-  <div id="osw-management-view">
   <div class="row g-4 mb-4">
-  <div class="col-12 col-xl-6"><section class="card osw-panel">
-    <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-collection"></i> Signaturgruppen</strong><button class="btn btn-sm btn-outline-light" id="osw-new-group">Gruppe</button></div>
+  <div class="col-12 col-xl-6"><section class="card">
+    <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-collection"></i> Signaturgruppen</strong><button class="btn btn-sm btn-outline-secondary" id="osw-new-group">Gruppe</button></div>
     <div class="card-body"><div id="osw-groups" class="osw-list">Lade Gruppen …</div></div>
   </section></div>
-  <div class="col-12 col-xl-6"><section class="card osw-panel">
-    <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-diagram-3"></i> Regeln</strong><button class="btn btn-sm btn-outline-light" id="osw-new-rule">Regel</button></div>
+  <div class="col-12 col-xl-6"><section class="card">
+    <div class="card-header d-flex justify-content-between align-items-center"><strong><i class="bi bi-diagram-3"></i> Regeln</strong><button class="btn btn-sm btn-outline-secondary" id="osw-new-rule">Regel</button></div>
     <div class="card-body"><div id="osw-rules" class="osw-list">Lade Regeln …</div></div>
   </section></div>
 </div>
 <div class="row g-4">
     <div class="col-12 col-xl-4">
-      <section class="card osw-panel h-100">
+      <section class="card h-100">
         <div class="card-header d-flex align-items-center justify-content-between">
           <strong><i class="bi bi-globe2"></i> Domains</strong>
-          <button class="btn btn-sm btn-outline-light" id="osw-new-domain"><i class="bi bi-plus-lg"></i> Domain</button>
+          <button class="btn btn-sm btn-outline-secondary" id="osw-new-domain"><i class="bi bi-plus-lg"></i> Domain</button>
         </div>
         <div class="card-body">
           <p class="text-muted small">Domains werden hier für die Signaturverwaltung freigeschaltet.</p>
@@ -51,14 +42,14 @@
       </section>
     </div>
     <div class="col-12 col-xl-8">
-      <section class="card osw-panel">
+      <section class="card">
         <div class="card-header d-flex align-items-center justify-content-between">
           <strong><i class="bi bi-pen"></i> Signaturen</strong>
           <span class="badge text-bg-secondary" id="osw-signature-count">0</span>
         </div>
         <div class="card-body">
           <div class="table-responsive">
-            <table class="table table-hover align-middle osw-table mb-0">
+            <table class="table table-hover align-middle mb-0">
               <thead><tr><th>Name</th><th>Modus</th><th>Geltungsbereich</th><th>Status</th><th class="text-end">Aktionen</th></tr></thead>
               <tbody id="osw-signatures"><tr><td colspan="5" class="text-muted">Lade Signaturen …</td></tr></tbody>
             </table>
@@ -67,61 +58,14 @@
       </section>
     </div>
   </div>
-  </div>
-
-  <div id="osw-branding-view" class="d-none">
-    <section class="card osw-panel">
-      <div class="card-header"><strong><i class="bi bi-palette"></i> OpenSigWeave Branding</strong></div>
-      <div class="card-body">
-        <div class="row g-4">
-          <div class="col-12 col-lg-7">
-            <div class="mb-3">
-              <label class="form-label" for="osw-branding-name">Anzeigename</label>
-              <input class="form-control" id="osw-branding-name" maxlength="120" value="OpenSigWeave">
-            </div>
-            <div class="mb-3">
-              <label class="form-label" for="osw-branding-color">Akzentfarbe</label>
-              <input class="form-control form-control-color" type="color" id="osw-branding-color" value="#ff7043" title="Akzentfarbe auswählen">
-            </div>
-            <div class="mb-3">
-              <label class="form-label" for="osw-branding-logo-file">Logo (PNG, maximal 512 KiB)</label>
-              <input class="form-control" type="file" id="osw-branding-logo-file" accept="image/png">
-              <div class="form-check mt-2">
-                <input class="form-check-input" type="checkbox" id="osw-branding-reset-logo">
-                <label class="form-check-label" for="osw-branding-reset-logo">Gespeichertes Logo entfernen</label>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label" for="osw-branding-favicon-file">Favicon (PNG oder ICO, maximal 256 KiB)</label>
-              <input class="form-control" type="file" id="osw-branding-favicon-file" accept="image/png,image/x-icon,.ico">
-              <div class="form-check mt-2">
-                <input class="form-check-input" type="checkbox" id="osw-branding-reset-favicon">
-                <label class="form-check-label" for="osw-branding-reset-favicon">Gespeichertes Favicon entfernen</label>
-              </div>
-              <div class="form-text">Das Favicon wird als OpenSigWeave-Branding gespeichert. Das globale Mailcow-Favicon wird nicht überschrieben.</div>
-            </div>
-            <button type="button" class="btn btn-danger" id="osw-save-branding"><i class="bi bi-floppy"></i> Branding speichern</button>
-          </div>
-          <div class="col-12 col-lg-5">
-            <div class="osw-brand-preview">
-              <div class="text-muted small mb-2">Vorschau</div>
-              <img id="osw-branding-logo-preview" class="d-none osw-brand-preview-logo" alt="Branding-Vorschau">
-              <div class="h4 mt-3 mb-1 osw-brand-title" id="osw-branding-name-preview">OpenSigWeave</div>
-              <div class="small text-muted" id="osw-branding-favicon-status">Kein eigenes Favicon gespeichert.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
 </div>
 
 <div class="modal fade" id="osw-domain-modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content osw-modal">
+    <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="osw-domain-title">Domain hinzufügen</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="osw-domain-id">
@@ -156,7 +100,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
-        <button type="button" class="btn btn-danger" id="osw-save-domain">Domain speichern</button>
+        <button type="button" class="btn btn-primary" id="osw-save-domain">Domain speichern</button>
       </div>
     </div>
   </div>
@@ -164,10 +108,10 @@
 
 <div class="modal fade" id="osw-signature-modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content osw-modal">
+    <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="osw-modal-title">Neue Signatur</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="osw-signature-id">
@@ -209,8 +153,8 @@
         <label class="form-label" for="osw-signature-html">HTML-Signatur</label>
         <textarea id="osw-signature-html"></textarea>
         <div class="d-flex flex-wrap gap-2 mt-3">
-          <button type="button" class="btn btn-outline-light btn-sm" id="osw-preview-signature"><i class="bi bi-eye"></i> Vorschau</button>
-          <button type="button" class="btn btn-outline-light btn-sm" id="osw-show-versions"><i class="bi bi-clock-history"></i> Versionsverlauf</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="osw-preview-signature"><i class="bi bi-eye"></i> Vorschau</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="osw-show-versions"><i class="bi bi-clock-history"></i> Versionsverlauf</button>
         </div>
         <div class="card mt-3 d-none" id="osw-preview-panel">
           <div class="card-header"><strong>Vorschau</strong> <span class="text-muted small">mit Beispieldaten, isoliert im Browser</span></div>
@@ -233,15 +177,15 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
-        <button type="button" class="btn btn-danger" id="osw-save-signature">Speichern</button>
+        <button type="button" class="btn btn-primary" id="osw-save-signature">Speichern</button>
       </div>
     </div>
   </div>
 </div>
 
 <div class="modal fade" id="osw-group-modal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content osw-modal">
-    <div class="modal-header"><h5 class="modal-title" id="osw-group-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="osw-group-title">Signaturgruppe anlegen</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <input type="hidden" id="osw-group-id"><label class="form-label" for="osw-group-name">Gruppenname</label><input class="form-control mb-3" id="osw-group-name" maxlength="255">
       <div class="form-check form-switch mb-3">
@@ -252,12 +196,12 @@
       <div id="osw-group-member-list" class="mb-3"></div>
       <label class="form-label" for="osw-group-domains">Domains (leer = alle Domains)</label><select class="form-select" id="osw-group-domains" multiple size="4"></select>
     </div>
-    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-danger" id="osw-save-group">Gruppe speichern</button></div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-primary" id="osw-save-group">Gruppe speichern</button></div>
   </div></div>
 </div>
 <div class="modal fade" id="osw-rule-modal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content osw-modal">
-    <div class="modal-header"><h5 class="modal-title" id="osw-rule-title">Regel anlegen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+  <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="osw-rule-title">Regel anlegen</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><div class="row g-3">
       <div class="col-md-8"><input type="hidden" id="osw-rule-id"><label class="form-label" for="osw-rule-name">Regelname</label><input class="form-control" id="osw-rule-name" maxlength="255"></div>
       <div class="col-md-4"><label class="form-label" for="osw-rule-priority">Priorität</label><input class="form-control" id="osw-rule-priority" type="number" value="0"></div>
@@ -267,7 +211,7 @@
       <div class="col-12">
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
           <label class="form-label mb-0">Bedingungen (alle müssen zutreffen)</label>
-          <button type="button" class="btn btn-sm btn-outline-light" id="osw-add-rule-condition"><i class="bi bi-plus-lg"></i> Bedingung</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="osw-add-rule-condition"><i class="bi bi-plus-lg"></i> Bedingung</button>
         </div>
         <div id="osw-rule-conditions"></div>
         <div class="form-text">Claim- und Attributbedingungen benötigen zusätzlich einen Schlüssel. Ohne Bedingungen gilt die Regel für jeden passenden Absenderkontext.</div>
@@ -279,7 +223,7 @@
         </div>
       </div>
     </div></div>
-    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-danger" id="osw-save-rule">Regel speichern</button></div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button><button class="btn btn-primary" id="osw-save-rule">Regel speichern</button></div>
   </div></div>
 </div>
 <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>

@@ -107,10 +107,10 @@ The Mailcow-mode engine contract is `POST /internal/signature` with the `X-Engin
 The `beta` branch now contains a substantially working Mailcow-native management layer:
 
 - OpenSigWeave runs as a private headless FastAPI engine against Mailcow's existing MariaDB service; no public engine port, second login system or PostgreSQL service is required.
-- OpenSigWeave-owned tables stay in the reserved `osw_` namespace with an isolated Alembic version table. The branding migration supports both fresh installations and upgrades from the original Mailcow OpenSigWeave schema.
+- OpenSigWeave-owned tables stay in the reserved `osw_` namespace with an isolated Alembic version table. Mailcow-specific migrations are tested against MariaDB upgrades as well as fresh installations.
 - The native Mailcow administration page manages domains, signatures, signature groups and rules through the existing Mailcow admin session and CSRF boundary.
 - Signature editing stores immutable filesystem versions. The Mailcow UI exposes a sandboxed server-rendered preview, version history and restore; restore creates a new current version instead of rewriting history.
-- Persistent OpenSigWeave branding is configurable from a dedicated Mailcow UI tab: display name, accent color, PNG logo and stored PNG/ICO favicon data. The OpenSigWeave logo and accent are applied inside the integration page; the global Mailcow favicon is intentionally not overwritten.
+- The OpenSigWeave administration page follows the normal Mailcow/Bootstrap presentation and does not introduce separate application branding.
 - MariaDB-compatible variant/group rotation, rule evaluation, HTML sanitization, template rendering and Mailcow LDAP profile attributes are integrated.
 - Signature files remain in the Mailcow-managed persistent volume and are included in the existing Mailcow backup/restore path.
 - Mailcow's existing `MOO_FOOTER` / `footer.php` / Rspamd path remains the only message-body modifier. The standalone Postfix Milter and Stalwart adapters are not installed in this distribution.
@@ -118,6 +118,8 @@ The `beta` branch now contains a substantially working Mailcow-native management
 Current validation covers Python compilation, the engine image build, PHP unit/lint checks, Lua syntax, JavaScript syntax, Compose validation, MariaDB schema/migration tests and HTTP boundary tests.
 
 ### Deliberately not ported yet
+
+- **Standalone branding:** Mailcow owns the application shell and visual identity. OpenSigWeave therefore intentionally has no separate branding settings, logo, favicon or accent-color subsystem in this distribution.
 
 - **Scheduling:** standalone OpenSigWeave `dev` now has time-bounded signature/group scheduling. It is intentionally not enabled in the Mailcow distribution yet because the Mailcow behavior and UX are still being decided.
 - **Reply placement before quoted history:** standalone adapters have parser-based placement logic. Mailcow still uses Rspamd's `lua_mime.add_text_footer()`, which appends to text parts and does not provide the same placement semantics. This must not be replaced with an untested regex rewrite.

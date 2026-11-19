@@ -8,8 +8,6 @@
   var domainModal;
   var editingGroupMembers = {};
   var editingRuleConditions = [];
-  var brandingLogoData = null;
-  var brandingFaviconData = null;
   var $ = function (id) { return document.getElementById(id); };
 
   function node(tag, cls, value) {
@@ -207,92 +205,15 @@
     });
   }
 
-  function showView(view) {
-    var branding = view === 'branding';
-    $('osw-management-view').classList.toggle('d-none', branding);
-    $('osw-branding-view').classList.toggle('d-none', !branding);
-    $('osw-tab-management').classList.toggle('active', !branding);
-    $('osw-tab-branding').classList.toggle('active', branding);
-  }
-
-  function fileToDataUrl(file) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () { resolve(String(reader.result || '')); };
-      reader.onerror = function () { reject(new Error('Datei konnte nicht gelesen werden.')); };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function applyBranding(branding) {
-    var root = document.querySelector('.osw-admin');
-    if (root) root.style.setProperty('--osw-accent', branding.app_color || '#ff7043');
-    $('osw-brand-name').textContent = branding.app_name || 'OpenSigWeave';
-    $('osw-branding-name').value = branding.app_name || 'OpenSigWeave';
-    $('osw-branding-color').value = branding.app_color || '#ff7043';
-    $('osw-branding-name-preview').textContent = branding.app_name || 'OpenSigWeave';
-    $('osw-branding-reset-logo').checked = false;
-    $('osw-branding-reset-favicon').checked = false;
-
-    var headerLogo = $('osw-brand-logo');
-    var previewLogo = $('osw-branding-logo-preview');
-    if (branding.logo_data_url) {
-      headerLogo.src = branding.logo_data_url;
-      previewLogo.src = branding.logo_data_url;
-      headerLogo.classList.remove('d-none');
-      previewLogo.classList.remove('d-none');
-    } else {
-      headerLogo.removeAttribute('src');
-      previewLogo.removeAttribute('src');
-      headerLogo.classList.add('d-none');
-      previewLogo.classList.add('d-none');
-    }
-    $('osw-branding-favicon-status').textContent = branding.has_favicon
-      ? 'Eigenes OpenSigWeave-Favicon gespeichert.'
-      : 'Kein eigenes Favicon gespeichert.';
-  }
-
-  async function saveBranding() {
-    var payload = {
-      app_name: $('osw-branding-name').value.trim(),
-      app_color: $('osw-branding-color').value,
-      logo_data_url: brandingLogoData,
-      favicon_data_url: brandingFaviconData,
-      reset_logo: $('osw-branding-reset-logo').checked,
-      reset_favicon: $('osw-branding-reset-favicon').checked
-    };
-    if (!payload.app_name) {
-      notify('Bitte einen Branding-Anzeigenamen eingeben.', 'warning');
-      return;
-    }
-    var button = $('osw-save-branding');
-    button.disabled = true;
-    try {
-      var updated = await api('PUT', '/admin/branding', payload);
-      brandingLogoData = null;
-      brandingFaviconData = null;
-      $('osw-branding-logo-file').value = '';
-      $('osw-branding-favicon-file').value = '';
-      applyBranding(updated);
-      notify('Branding gespeichert.', 'success');
-    } catch (error) {
-      notify(error.message, 'danger');
-    } finally {
-      button.disabled = false;
-    }
-  }
-
   async function refresh() {
     try {
       var results = await Promise.all([
         api('GET', '/admin/catalog'),
         api('GET', '/admin/groups'),
-        api('GET', '/admin/rules'),
-        api('GET', '/admin/branding')
+        api('GET', '/admin/rules')
       ]);
       catalog = { domains: results[0].domains, signatures: results[0].signatures,
         groups: results[1], rules: results[2] };
-      applyBranding(results[3]);
       renderDomains();
       renderSignatures();
       renderGroups();
@@ -627,49 +548,6 @@
       notify('CKEditor 5 konnte nicht geladen werden: ' + error.message, 'danger');
     }
     $('osw-refresh').addEventListener('click', refresh);
-    $('osw-tab-management').addEventListener('click', function () { showView('management'); });
-    $('osw-tab-branding').addEventListener('click', function () { showView('branding'); });
-    $('osw-save-branding').addEventListener('click', saveBranding);
-    $('osw-branding-name').addEventListener('input', function () {
-      $('osw-branding-name-preview').textContent = $('osw-branding-name').value || 'OpenSigWeave';
-    });
-    $('osw-branding-color').addEventListener('input', function () {
-      var root = document.querySelector('.osw-admin');
-      if (root) root.style.setProperty('--osw-accent', $('osw-branding-color').value);
-    });
-    $('osw-branding-logo-file').addEventListener('change', async function () {
-      var file = this.files && this.files[0];
-      if (!file) return;
-      try {
-        brandingLogoData = await fileToDataUrl(file);
-        $('osw-branding-reset-logo').checked = false;
-        $('osw-branding-logo-preview').src = brandingLogoData;
-        $('osw-branding-logo-preview').classList.remove('d-none');
-      } catch (error) { notify(error.message, 'danger'); }
-    });
-    $('osw-branding-favicon-file').addEventListener('change', async function () {
-      var file = this.files && this.files[0];
-      if (!file) return;
-      try {
-        brandingFaviconData = await fileToDataUrl(file);
-        $('osw-branding-reset-favicon').checked = false;
-        $('osw-branding-favicon-status').textContent = 'Neues Favicon zum Speichern ausgewählt.';
-      } catch (error) { notify(error.message, 'danger'); }
-    });
-    $('osw-branding-reset-logo').addEventListener('change', function () {
-      if (this.checked) {
-        brandingLogoData = null;
-        $('osw-branding-logo-file').value = '';
-        $('osw-branding-logo-preview').classList.add('d-none');
-      }
-    });
-    $('osw-branding-reset-favicon').addEventListener('change', function () {
-      if (this.checked) {
-        brandingFaviconData = null;
-        $('osw-branding-favicon-file').value = '';
-        $('osw-branding-favicon-status').textContent = 'Favicon wird beim Speichern entfernt.';
-      }
-    });
     $('osw-new-signature').addEventListener('click', function () { openSignature(null); });
     $('osw-new-domain').addEventListener('click', function () { openDomain(null); });
     $('osw-save-domain').addEventListener('click', saveDomain);
