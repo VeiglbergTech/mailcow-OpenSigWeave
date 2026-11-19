@@ -515,17 +515,25 @@ def process_mailcow_message(
                 },
             )
 
-        if selected_opensigweave:
+        if selected_opensigweave and result.signature_inserted:
             db.commit()
         else:
             db.rollback()
+
+        if selected_opensigweave and result.signature_inserted:
+            rewrite_source = "opensigweave"
+        elif not selected_opensigweave and result.signature_inserted:
+            rewrite_source = "mailcow-fallback"
+        else:
+            rewrite_source = "cleanup"
+
         return Response(
             content=result.message,
             media_type="message/rfc822",
             headers={
                 "Cache-Control": "no-store, private",
                 "X-OpenSigWeave-Rewritten": "1",
-                "X-OpenSigWeave-Source": "opensigweave" if selected_opensigweave else "mailcow-fallback",
+                "X-OpenSigWeave-Source": rewrite_source,
             },
         )
     except Exception:

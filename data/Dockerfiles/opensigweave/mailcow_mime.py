@@ -40,6 +40,7 @@ class RewriteResult:
     message: bytes
     changed: bool
     reason: str
+    signature_inserted: bool = False
 
 
 def _contains_protected_part(part) -> bool:
@@ -207,10 +208,9 @@ def rewrite_message(
     if parsed.defects or _contains_protected_part(parsed):
         return RewriteResult(raw_message, False, "protected-or-malformed")
 
-    if not inject_on_replies and (
+    reply_disabled = not inject_on_replies and (
         parsed.get("In-Reply-To") is not None or parsed.get("References") is not None
-    ):
-        return RewriteResult(raw_message, False, "reply-disabled")
+    )
 
     parts = list(_editable_parts(parsed))
     if any(part.defects for part in parts):
@@ -218,6 +218,7 @@ def rewrite_message(
 
     prepared = []
     marker_changed = False
+    signature_inserted = False
     for part in parts:
         if part.is_multipart():
             continue
@@ -238,14 +239,17 @@ def rewrite_message(
         if cleanup_signature_markers:
             content, removed_marker = _remove_signature_markers(content, html=is_html)
             marker_changed = marker_changed or removed_marker
-        if strip_device_signatures:
-            content = _strip_device_signatures(content, html=is_html)
-        if trim_whitespace:
-            content = _trim_trailing_whitespace(content, html=is_html)
 
         signature = html_signature if is_html else plain_signature
-        if signature:
+        has_any_signature = bool(html_signature or plain_signature)
+        if has_any_signature and not reply_disabled and not signature:
+            return RewriteResult(raw_message, False, "missing-alternative-signature")
+
+        if signature and not reply_disabled:
+            if strip_device_signatures:
+                content = _strip_device_signatures(content, html=is_html)
             if trim_whitespace:
+                content = _trim_trailing_whitespace(content, html=is_html)
                 signature = _trim_trailing_whitespace(signature, html=is_html).lstrip()
             updated, _quote_detected = insert_signature(
                 content,
@@ -265,13 +269,17 @@ def rewrite_message(
         if cte == "7bit" and any(byte > 0x7F for byte in encoded):
             cte = "quoted-printable"
 
+        if signature and not reply_disabled and updated != content:
+            signature_inserted = True
         prepared.append(
             (part, updated, part.get_content_subtype(), charset, cte, _content_type_params(part))
         )
 
     if not prepared:
         return RewriteResult(raw_message, False, "no-editable-text-part")
-    if not (html_signature or plain_signature or marker_changed):
+    if reply_disabled and not marker_changed:
+        return RewriteResult(raw_message, False, "reply-disabled")
+    if not (signature_inserted or marker_changed):
         return RewriteResult(raw_message, False, "no-change")
 
     for part, updated, subtype, charset, cte, params in prepared:
@@ -287,4 +295,9 @@ def rewrite_message(
     rewritten = output.getvalue()
     if not rewritten:
         return RewriteResult(raw_message, False, "serialization-failed")
-    return RewriteResult(rewritten, True, "rewritten")
+    return RewriteResult(
+        rewritten,
+        True,
+        "rewritten" if signature_inserted else "marker-cleanup",
+        signature_inserted=signature_inserted,
+    )

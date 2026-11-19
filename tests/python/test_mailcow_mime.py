@@ -178,6 +178,27 @@ class MailcowMimeRewriteTests(unittest.TestCase):
         self.assertFalse(result.changed)
         self.assertEqual(result.reason, "protected-or-malformed")
 
+    def test_reply_disabled_still_consumes_new_message_marker_without_signature(self):
+        raw = (
+            b"In-Reply-To: <old@example.org>\r\n"
+            b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            b"Answer\r\n<---[Holiday]--[abcd]--->\r\n\r\n> old text\r\n"
+        )
+        result = rewrite_message(
+            raw,
+            html_signature="<p>Signature</p>",
+            plain_signature="Signature",
+            inject_on_replies=False,
+            cleanup_signature_markers=True,
+        )
+        self.assertTrue(result.changed)
+        self.assertFalse(result.signature_inserted)
+        self.assertEqual(result.reason, "marker-cleanup")
+        body = BytesParser(policy=policy.default).parsebytes(result.message).get_content()
+        self.assertNotIn("<---[", body)
+        self.assertNotIn("Signature", body)
+        self.assertIn("> old text", body)
+
     def test_reply_headers_disable_rewrite_when_policy_is_off(self):
         raw = (
             b"From: alice@example.org\r\nIn-Reply-To: <old@example.org>\r\n"
