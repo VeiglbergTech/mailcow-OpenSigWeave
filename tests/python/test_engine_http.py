@@ -1,5 +1,6 @@
 """HTTP boundary smoke tests for the embedded engine."""
 import base64
+import hashlib
 import os
 import sys
 import unittest
@@ -249,6 +250,100 @@ class EngineHttpBoundaryTests(unittest.TestCase):
         self.assertEqual(self.client.delete("/admin/signatures/" + signature_id, headers=headers).status_code, 200)
         deleted_domain = self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
         self.assertEqual(deleted_domain.status_code, 200, deleted_domain.text)
+
+    def test_process_message_selects_named_signature_from_body_marker_and_consumes_it(self):
+        headers = {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
+        suffix = uuid.uuid4().hex[:12]
+        domain_name = f"marker-{suffix}.example.test"
+        sender = f"alice@{domain_name}"
+        signature_name = f"Holiday {suffix}"
+        code = hashlib.sha256(signature_name.casefold().encode("utf-8")).hexdigest()[:4]
+
+        domain = self.client.post("/admin/domains", headers=headers, json={"domain_name": domain_name})
+        self.assertEqual(domain.status_code, 200, domain.text)
+        domain_id = domain.json()["id"]
+        signature = self.client.post("/admin/signatures", headers=headers, json={
+            "name": signature_name,
+            "html_content": "<p>Holiday Signature</p>",
+            "mode": "AUTO",
+            "domain_ids": [domain_id],
+        })
+        self.assertEqual(signature.status_code, 200, signature.text)
+        signature_id = signature.json()["id"]
+
+        try:
+            marker = f"<---[{signature_name}]--[{code}]--->"
+            raw = (
+                f"From: {sender}\r\n"
+                "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+                f"Hello\r\n{marker}\r\n"
+            ).encode("utf-8")
+            response = self.client.post(
+                "/internal/process-message",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "message_b64": base64.b64encode(raw).decode("ascii"),
+                    "authenticated_user": sender,
+                    "envelope_sender": sender,
+                    "target_domain": domain_name,
+                    "profile": {},
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.headers.get("X-OpenSigWeave-Source"), "opensigweave")
+            self.assertNotIn(marker.encode("utf-8"), response.content)
+            self.assertIn(b"Holiday Signature", response.content)
+        finally:
+            self.client.delete("/admin/signatures/" + signature_id, headers=headers)
+            self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
+
+    def test_none_header_precedes_marker_and_marker_is_still_consumed(self):
+        headers = {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
+        suffix = uuid.uuid4().hex[:12]
+        domain_name = f"none-{suffix}.example.test"
+        sender = f"alice@{domain_name}"
+        signature_name = f"Suppressed {suffix}"
+        code = hashlib.sha256(signature_name.casefold().encode("utf-8")).hexdigest()[:4]
+
+        domain = self.client.post("/admin/domains", headers=headers, json={"domain_name": domain_name})
+        self.assertEqual(domain.status_code, 200, domain.text)
+        domain_id = domain.json()["id"]
+        signature = self.client.post("/admin/signatures", headers=headers, json={
+            "name": signature_name,
+            "html_content": "<p>Must Not Appear</p>",
+            "mode": "AUTO",
+            "domain_ids": [domain_id],
+        })
+        self.assertEqual(signature.status_code, 200, signature.text)
+        signature_id = signature.json()["id"]
+
+        try:
+            marker = f"<---[{signature_name}]--[{code}]--->"
+            raw = (
+                f"From: {sender}\r\n"
+                "X-OpenSigWeave-Mode: NONE\r\n"
+                "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+                f"Hello\r\n{marker}\r\n"
+            ).encode("utf-8")
+            response = self.client.post(
+                "/internal/process-message",
+                headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+                json={
+                    "message_b64": base64.b64encode(raw).decode("ascii"),
+                    "authenticated_user": sender,
+                    "envelope_sender": sender,
+                    "target_domain": domain_name,
+                    "profile": {},
+                    "fallback_plain": "Native fallback must not appear",
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertNotIn(marker.encode("utf-8"), response.content)
+            self.assertNotIn(b"Must Not Appear", response.content)
+            self.assertNotIn(b"Native fallback must not appear", response.content)
+        finally:
+            self.client.delete("/admin/signatures/" + signature_id, headers=headers)
+            self.client.delete("/admin/domains/" + str(domain_id), headers=headers)
 
     def test_process_message_commits_rotation_only_after_successful_mime_rewrite(self):
         headers = {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
