@@ -99,6 +99,9 @@ class ProcessMessageRequest(BaseModel):
     fallback_html: str = Field(default="", max_length=65536)
     fallback_plain: str = Field(default="", max_length=65536)
     fallback_skip_replies: bool = False
+    mode: str | None = Field(default=None, max_length=32)
+    signature_name: str | None = Field(default=None, max_length=255)
+    signature_code: str | None = Field(default=None, max_length=4)
 
 
 class _SignaturePlainTextParser(HTMLParser):
@@ -454,9 +457,9 @@ def process_mailcow_message(
         envelope_sender=request.envelope_sender,
         target_domain=request.target_domain,
         profile=request.profile,
-        mode=directive.mode,
-        signature_name=directive.signature_name,
-        signature_code=directive.signature_code,
+        mode=request.mode if request.mode in {"AUTO", "PROFESSIONAL", "INTERNAL", "NONE"} else directive.mode,
+        signature_name=request.signature_name if request.signature_name is not None else directive.signature_name,
+        signature_code=request.signature_code if request.signature_name is not None else directive.signature_code,
         commit_selection=False,
     )
     try:
@@ -465,8 +468,13 @@ def process_mailcow_message(
         selected_plain = rendered.get("plain", "")
         selected_opensigweave = bool(selected_html or selected_plain)
 
-        explicit_none = directive.mode == "NONE"
-        explicit_signature = directive.signature_requested or directive.marker_present
+        effective_mode = request.mode if request.mode in {"AUTO", "PROFESSIONAL", "INTERNAL", "NONE"} else directive.mode
+        explicit_none = effective_mode == "NONE"
+        explicit_signature = (
+            request.signature_name is not None
+            or directive.signature_requested
+            or directive.marker_present
+        )
         suppress_fallback = explicit_none or explicit_signature
 
         if selected_opensigweave:

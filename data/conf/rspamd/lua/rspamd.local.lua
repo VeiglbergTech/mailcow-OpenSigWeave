@@ -847,6 +847,38 @@ rspamd_config:register_symbol({
     local env_from_domain = envfrom[1].domain:lower()
     local env_from_addr = envfrom[1].addr:lower()
 
+    -- OpenSigWeave selector headers are message controls, never recipient-visible data.
+    local osw_mode = ''
+    local osw_signature = ''
+    local osw_code = ''
+    local selector_hint = false
+    local mode_count = task:get_header_count('X-OpenSigWeave-Mode')
+    local signature_count = task:get_header_count('X-OpenSigWeave-Signature')
+    local code_count = task:get_header_count('X-OpenSigWeave-Signature-Code')
+    if mode_count == 1 then osw_mode = tostring(task:get_header('X-OpenSigWeave-Mode') or '') end
+    if signature_count == 1 then osw_signature = tostring(task:get_header('X-OpenSigWeave-Signature') or '') end
+    if code_count == 1 then osw_code = tostring(task:get_header('X-OpenSigWeave-Signature-Code') or '') end
+    if mode_count > 0 or signature_count > 0 or code_count > 0 then selector_hint = true end
+
+    local raw_body_for_hint = task:get_rawbody()
+    local raw_body_hint = raw_body_for_hint and tostring(raw_body_for_hint) or ''
+    if raw_body_hint:find('<---[', 1, true)
+        or raw_body_hint:lower():find('&lt;---[', 1, true)
+        or raw_body_hint:find('=3C---[', 1, true) then
+      selector_hint = true
+    end
+
+    for _, control_name in ipairs({
+      'X-OpenSigWeave-Mode',
+      'X-OpenSigWeave-Signature',
+      'X-OpenSigWeave-Signature-Code',
+      'X-OpenSigWeave-Injected',
+    }) do
+      if task:get_header_count(control_name) > 0 then
+        task:modify_header(control_name, { remove = { 0 } })
+      end
+    end
+
     -- determine newline type
     local function newline(task)
       local t = task:get_newlines_type()
@@ -869,10 +901,14 @@ rspamd_config:register_symbol({
         if not decoded or type(footer) ~= 'table' then
           rspamd_logger.infox(rspamd_config, "domain wide footer response for user %s is not valid JSON", uname)
         else
-          if footer and type(footer) == "table" and (footer.html and footer.html ~= "" or footer.plain and footer.plain ~= "")  then
+          if footer and type(footer) == "table" and (
+              footer.opensigweave == true
+              or (footer.html and footer.html ~= "")
+              or (footer.plain and footer.plain ~= "")
+          ) then
             rspamd_logger.infox(rspamd_config, "found domain wide footer for user %s (html=%s, plain=%s)", uname, footer.html ~= nil and footer.html ~= "", footer.plain ~= nil and footer.plain ~= "")
 
-            if footer.skip_replies ~= 0 then
+            if footer.opensigweave ~= true and footer.skip_replies ~= 0 then
               local in_reply_to = task:get_header_raw('in-reply-to')
               if in_reply_to then
                 rspamd_logger.infox(rspamd_config, "mail is a reply - skip footer")
@@ -931,13 +967,19 @@ rspamd_config:register_symbol({
               end
 
               local encoded_message = tostring(rspamd_util.encode_base64(raw_message, 0))
+              local context = type(footer.context) == 'table' and footer.context or {}
               local rewrite_payload = cjson.encode({
                 message_b64 = encoded_message,
-                html = footer.html or '',
-                plain = footer.plain or '',
-                inject_on_replies = footer.inject_on_replies == true,
-                trim_whitespace = footer.trim_whitespace ~= false,
-                strip_device_signatures = footer.strip_device_signatures == true,
+                authenticated_user = context.authenticated_user or uname,
+                envelope_sender = context.envelope_sender or env_from_addr,
+                target_domain = context.target_domain or env_from_domain,
+                profile = type(context.profile) == 'table' and context.profile or {},
+                fallback_html = footer.html or '',
+                fallback_plain = footer.plain or '',
+                fallback_skip_replies = footer.skip_replies ~= 0,
+                mode = osw_mode ~= '' and osw_mode or nil,
+                signature_name = osw_signature ~= '' and osw_signature or nil,
+                signature_code = osw_code ~= '' and osw_code or nil,
               })
 
               local function opensigweave_rewrite_cb(rewrite_error, rewrite_code, rewrite_body, rewrite_headers)
@@ -957,7 +999,7 @@ rspamd_config:register_symbol({
 
               rspamd_http.request({
                 task = task,
-                url = 'http://opensigweave:8090/internal/rewrite-message',
+                url = 'http://opensigweave:8090/internal/process-message',
                 body = rewrite_payload,
                 callback = opensigweave_rewrite_cb,
                 timeout = 8.0,
@@ -1063,7 +1105,15 @@ rspamd_config:register_symbol({
       url='http://nginx:8081/footer.php',
       body='',
       callback=footer_cb,
-      headers={Domain=env_from_domain,Username=uname,From=env_from_addr},
+      headers={
+        Domain=env_from_domain,
+        Username=uname,
+        From=env_from_addr,
+        ['Osw-Selector-Hint']=selector_hint and '1' or '0',
+        ['Osw-Mode']=osw_mode,
+        ['Osw-Signature']=osw_signature,
+        ['Osw-Code']=osw_code,
+      },
     })
 
     return true

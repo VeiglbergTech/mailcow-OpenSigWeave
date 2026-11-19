@@ -41,6 +41,10 @@ $headers = getallheaders();
 $domain = strtolower(trim($headers['Domain'] ?? ''));
 $username = strtolower(trim($headers['Username'] ?? ''));
 $from = strtolower(trim($headers['From'] ?? ''));
+$selector_hint = trim($headers['Osw-Selector-Hint'] ?? '') === '1';
+$selector_mode = trim($headers['Osw-Mode'] ?? '');
+$selector_signature = trim($headers['Osw-Signature'] ?? '');
+$selector_code = trim($headers['Osw-Code'] ?? '');
 
 $empty_footer = json_encode(array(
   'html' => '',
@@ -126,6 +130,10 @@ if (!$excluded && getenv('OPENSIGWEAVE_ENABLED') === 'y' && function_exists('cur
       'envelope_sender' => $from,
       'target_domain' => $target_domain,
       'profile' => $profile,
+      'mode' => $selector_mode !== '' ? $selector_mode : null,
+      'signature_name' => $selector_signature !== '' ? $selector_signature : null,
+      'signature_code' => $selector_code !== '' ? $selector_code : null,
+      'commit_selection' => false,
     ]);
 
     if ($payload !== false) {
@@ -149,16 +157,22 @@ if (!$excluded && getenv('OPENSIGWEAVE_ENABLED') === 'y' && function_exists('cur
 
       if ($engine_status === 200 && is_string($engine_body)) {
         $engine_result = json_decode($engine_body, true);
-        if (is_array($engine_result) && !empty($engine_result['html'])) {
+        $engine_has_signature = is_array($engine_result)
+          && (!empty($engine_result['html']) || !empty($engine_result['plain']));
+        if ($engine_has_signature || $selector_hint) {
           echo json_encode([
-            'html' => $engine_result['html'],
-            'plain' => is_string($engine_result['plain'] ?? null) ? $engine_result['plain'] : '',
-            'skip_replies' => !empty($engine_result['inject_on_replies']) ? 0 : 1,
-            'inject_on_replies' => !empty($engine_result['inject_on_replies']),
-            'trim_whitespace' => !array_key_exists('trim_whitespace', $engine_result) || !empty($engine_result['trim_whitespace']),
-            'strip_device_signatures' => !empty($engine_result['strip_device_signatures']),
+            // Native Mailcow footer is retained as a fallback and expanded by Rspamd.
+            'html' => is_array($footer) ? (string)($footer['html'] ?? '') : '',
+            'plain' => is_array($footer) ? (string)($footer['plain'] ?? '') : '',
+            'skip_replies' => is_array($footer) ? (int)($footer['skip_replies'] ?? 0) : 0,
             'opensigweave' => true,
-            'vars' => '{}',
+            'context' => [
+              'authenticated_user' => $username,
+              'envelope_sender' => $from,
+              'target_domain' => $target_domain,
+              'profile' => $profile,
+            ],
+            'vars' => $custom_attributes,
           ]);
           exit;
         }
