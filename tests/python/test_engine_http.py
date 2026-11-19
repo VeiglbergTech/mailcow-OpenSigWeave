@@ -1,4 +1,5 @@
 """HTTP boundary smoke tests for the embedded engine."""
+import base64
 import os
 import sys
 import unittest
@@ -45,6 +46,48 @@ class EngineHttpBoundaryTests(unittest.TestCase):
             json={"authenticated_user": "alice@example.test", "envelope_sender": "alice@example.test", "target_domain": "example.test", "profile": {}},
         )
         self.assertEqual(response.status_code, 401)
+
+    def test_rewrite_endpoint_requires_engine_key_and_places_signature_before_quote(self):
+        raw = (
+            b"From: alice@example.test\r\n"
+            b"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            b"New answer\r\n\r\n> quoted answer\r\n"
+        )
+        payload = {
+            "message_b64": base64.b64encode(raw).decode("ascii"),
+            "html": "<p>Signature</p>",
+            "plain": "Signature",
+            "inject_on_replies": True,
+        }
+        self.assertEqual(self.client.post("/internal/rewrite-message", json=payload).status_code, 401)
+        response = self.client.post(
+            "/internal/rewrite-message",
+            headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+            json=payload,
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers.get("X-OpenSigWeave-Rewritten"), "1")
+        self.assertLess(response.content.index(b"Signature"), response.content.index(b"> quoted answer"))
+
+    def test_rewrite_endpoint_noops_signed_messages(self):
+        raw = (
+            b"From: alice@example.test\r\nMIME-Version: 1.0\r\n"
+            b"Content-Type: multipart/signed; boundary=sig; protocol=application/pgp-signature\r\n\r\n"
+            b"--sig\r\nContent-Type: text/plain\r\n\r\nSigned\r\n"
+            b"--sig\r\nContent-Type: application/pgp-signature\r\n\r\nsig\r\n--sig--\r\n"
+        )
+        response = self.client.post(
+            "/internal/rewrite-message",
+            headers={"X-Engine-Key": os.environ["ENGINE_API_KEY"]},
+            json={
+                "message_b64": base64.b64encode(raw).decode("ascii"),
+                "html": "<p>Signature</p>",
+                "plain": "Signature",
+                "inject_on_replies": True,
+            },
+        )
+        self.assertEqual(response.status_code, 204, response.text)
+        self.assertEqual(response.headers.get("X-OpenSigWeave-Rewrite-Reason"), "protected-or-malformed")
 
     def test_signature_endpoint_rejects_invalid_sender_after_authentication(self):
         response = self.client.post(

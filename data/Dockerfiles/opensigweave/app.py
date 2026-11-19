@@ -1,4 +1,6 @@
 """Private, headless OpenSigWeave signature engine for Mailcow."""
+import base64
+import binascii
 import hashlib
 import hmac
 import logging
@@ -33,6 +35,7 @@ from signature_renderer import (
 )
 from signature_sanitizer import sanitize_signature_html
 from signature_storage import SignatureFileStore, SignatureStorageError
+from mailcow_mime import MAX_MESSAGE_B64_CHARS, MAX_MESSAGE_BYTES, rewrite_message
 
 logger = logging.getLogger("opensigweave")
 ENGINE_API_KEY = os.environ.get("ENGINE_API_KEY", "")
@@ -68,6 +71,16 @@ class SignatureRequest(BaseModel):
     mode: str | None = Field(default=None, max_length=32)
     signature_name: str | None = Field(default=None, max_length=255)
     signature_code: str | None = Field(default=None, max_length=4)
+
+
+class MessageRewriteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    message_b64: str = Field(min_length=1, max_length=MAX_MESSAGE_B64_CHARS)
+    html: str = Field(default="", max_length=65536)
+    plain: str = Field(default="", max_length=65536)
+    inject_on_replies: bool = False
+    trim_whitespace: bool = True
+    strip_device_signatures: bool = False
 
 
 class _SignaturePlainTextParser(HTMLParser):
@@ -153,6 +166,34 @@ app.mount("/assets", StaticFiles(directory="/app/assets", check_dir=False), name
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/internal/rewrite-message", dependencies=[Depends(require_engine_key)])
+def rewrite_mailcow_message(request: MessageRewriteRequest):
+    try:
+        raw_message = base64.b64decode(request.message_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid base64 message") from exc
+    if len(raw_message) > MAX_MESSAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Message exceeds configured size limit")
+    result = rewrite_message(
+        raw_message,
+        html_signature=request.html,
+        plain_signature=request.plain,
+        inject_on_replies=request.inject_on_replies,
+        trim_whitespace=request.trim_whitespace,
+        strip_device_signatures=request.strip_device_signatures,
+    )
+    if not result.changed:
+        return Response(status_code=204, headers={
+            "Cache-Control": "no-store, private",
+            "X-OpenSigWeave-Rewrite-Reason": result.reason,
+        })
+    return Response(
+        content=result.message,
+        media_type="message/rfc822",
+        headers={"Cache-Control": "no-store, private", "X-OpenSigWeave-Rewritten": "1"},
+    )
 
 
 @app.post("/internal/signature", dependencies=[Depends(require_engine_key)])
