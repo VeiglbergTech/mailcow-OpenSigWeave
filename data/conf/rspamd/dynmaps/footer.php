@@ -154,6 +154,10 @@ if (!$excluded && getenv('OPENSIGWEAVE_ENABLED') === 'y' && function_exists('cur
             'html' => $engine_result['html'],
             'plain' => is_string($engine_result['plain'] ?? null) ? $engine_result['plain'] : '',
             'skip_replies' => !empty($engine_result['inject_on_replies']) ? 0 : 1,
+            'inject_on_replies' => !empty($engine_result['inject_on_replies']),
+            'trim_whitespace' => !array_key_exists('trim_whitespace', $engine_result) || !empty($engine_result['trim_whitespace']),
+            'strip_device_signatures' => !empty($engine_result['strip_device_signatures']),
+            'opensigweave' => true,
             'vars' => '{}',
           ]);
           exit;

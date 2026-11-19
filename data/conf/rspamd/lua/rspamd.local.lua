@@ -445,6 +445,7 @@ rspamd_config:register_symbol({
     local rspamd_logger = require "rspamd_logger"
     local redis_params = rspamd_parse_redis_server('taghandler')
     local rspamd_http = require "rspamd_http"
+    local rspamd_util = require "rspamd_util"
     local rcpts = task:get_recipients({'smtp', 'orig'})
     local lua_util = require "lua_util"
 
@@ -912,7 +913,64 @@ rspamd_config:register_symbol({
               footer.plain = expand_footer(footer.plain, replacements)
             end
 
-            -- add footer
+            -- OpenSigWeave uses its parser-based MIME rewriter instead of
+            -- lua_mime.add_text_footer(). This preserves multipart alternatives and
+            -- can place signatures before recognised reply history.
+            if footer.opensigweave == true then
+              local engine_key = os.getenv('OPENSIGWEAVE_ENGINE_KEY') or ''
+              local raw_message = task:get_message()
+              if #engine_key < 32 or raw_message == nil then
+                rspamd_logger.errx(rspamd_config, "OPENSIGWEAVE: rewrite prerequisites unavailable for %s; skipping injection", uname)
+                return
+              end
+
+              local raw_string = tostring(raw_message)
+              if #raw_string > (20 * 1024 * 1024) then
+                rspamd_logger.infox(rspamd_config, "OPENSIGWEAVE: message for %s exceeds safe rewrite limit; skipping injection", uname)
+                return
+              end
+
+              local encoded_message = tostring(rspamd_util.encode_base64(raw_message, 0))
+              local rewrite_payload = cjson.encode({
+                message_b64 = encoded_message,
+                html = footer.html or '',
+                plain = footer.plain or '',
+                inject_on_replies = footer.inject_on_replies == true,
+                trim_whitespace = footer.trim_whitespace ~= false,
+                strip_device_signatures = footer.strip_device_signatures == true,
+              })
+
+              local function opensigweave_rewrite_cb(rewrite_error, rewrite_code, rewrite_body, rewrite_headers)
+                if rewrite_error == nil and rewrite_code == 200 and type(rewrite_body) == 'string' and #rewrite_body > 0 then
+                  local changed, new_size = task:set_message(rewrite_body)
+                  if changed then
+                    rspamd_logger.infox(rspamd_config, "OPENSIGWEAVE: safely rewrote message for %s (%s bytes)", uname, tostring(new_size))
+                  else
+                    rspamd_logger.errx(rspamd_config, "OPENSIGWEAVE: Rspamd rejected rewritten message for %s", uname)
+                  end
+                elseif rewrite_error == nil and rewrite_code == 204 then
+                  rspamd_logger.infox(rspamd_config, "OPENSIGWEAVE: message for %s intentionally left unchanged", uname)
+                else
+                  rspamd_logger.errx(rspamd_config, "OPENSIGWEAVE: MIME rewrite failed for %s (HTTP %s): %s", uname, tostring(rewrite_code), tostring(rewrite_error))
+                end
+              end
+
+              rspamd_http.request({
+                task = task,
+                url = 'http://opensigweave:8090/internal/rewrite-message',
+                body = rewrite_payload,
+                callback = opensigweave_rewrite_cb,
+                timeout = 8.0,
+                headers = {
+                  ['Content-Type'] = 'application/json',
+                  ['Accept'] = 'message/rfc822',
+                  ['X-Engine-Key'] = engine_key,
+                },
+              })
+              return
+            end
+
+            -- Native Mailcow footer fallback keeps the upstream Rspamd path.
             local out = {}
             local rewrite = lua_mime.add_text_footer(task, footer.html, footer.plain) or {}
 
