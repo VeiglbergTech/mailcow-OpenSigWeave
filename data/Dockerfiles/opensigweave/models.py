@@ -11,7 +11,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -210,21 +209,6 @@ class SignatureRuleConditionDB(Base):
     kind = Column(String(64), nullable=False)
     key = Column(String(255), nullable=False, default="")
     value = Column(Text, nullable=False)
-
-
-class BrandingSettingsDB(Base):
-    """Single-row OpenSigWeave branding configuration for Mailcow mode."""
-    __tablename__ = "osw_branding_settings"
-    id = Column(Integer, primary_key=True)
-    app_name = Column(String(120), nullable=False, default="OpenSigWeave")
-    app_color = Column(String(7), nullable=False, default="#ff7043")
-    logo_png = Column(LargeBinary, nullable=True)
-    favicon_data = Column(LargeBinary, nullable=True)
-    favicon_mime = Column(String(64), nullable=True)
-    updated_at = Column(
-        DateTime(timezone=True), nullable=False,
-        server_default=func.now(), onupdate=func.now(),
-    )
 
 
 class RateLimitBucketDB(Base):

@@ -35,23 +35,12 @@ class OpenSigWeaveMariaDBMigrationTests(unittest.TestCase):
         table_names = set(inspector.get_table_names())
         self.assertIn("osw_alembic_version", table_names)
         application_tables = {name for name in table_names if name.startswith("osw_")}
-        self.assertGreaterEqual(len(application_tables), 15)
-        self.assertIn("osw_branding_settings", application_tables)
+        self.assertGreaterEqual(len(application_tables), 14)
         self.assertEqual(application_tables, table_names)
 
-    def test_branding_migration_is_upgrade_safe_from_revision_0001(self):
-        command.downgrade(self.alembic_config, "0001_mailcow_schema")
+    def test_mailcow_head_schema_has_no_standalone_branding_table(self):
         inspector = inspect(self.engine)
         self.assertNotIn("osw_branding_settings", set(inspector.get_table_names()))
-
-        command.upgrade(self.alembic_config, "head")
-        inspector = inspect(self.engine)
-        self.assertIn("osw_branding_settings", set(inspector.get_table_names()))
-        with self.engine.connect() as connection:
-            revision = connection.execute(
-                text("SELECT version_num FROM osw_alembic_version")
-            ).scalar_one()
-        self.assertEqual(revision, "0002_branding")
 
     def test_foreign_keys_reference_only_osw_tables(self):
         inspector = inspect(self.engine)
@@ -69,7 +58,7 @@ class OpenSigWeaveMariaDBMigrationTests(unittest.TestCase):
             revision = connection.execute(
                 text("SELECT version_num FROM osw_alembic_version")
             ).scalar_one()
-        self.assertEqual(revision, "0002_branding")
+        self.assertEqual(revision, "0003_remove_branding")
         command.upgrade(self.alembic_config, "head")
 
 
