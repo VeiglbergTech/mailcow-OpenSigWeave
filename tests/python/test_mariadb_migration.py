@@ -39,6 +39,20 @@ class OpenSigWeaveMariaDBMigrationTests(unittest.TestCase):
         self.assertIn("osw_branding_settings", application_tables)
         self.assertEqual(application_tables, table_names)
 
+    def test_branding_migration_is_upgrade_safe_from_revision_0001(self):
+        command.downgrade(self.alembic_config, "0001_mailcow_schema")
+        inspector = inspect(self.engine)
+        self.assertNotIn("osw_branding_settings", set(inspector.get_table_names()))
+
+        command.upgrade(self.alembic_config, "head")
+        inspector = inspect(self.engine)
+        self.assertIn("osw_branding_settings", set(inspector.get_table_names()))
+        with self.engine.connect() as connection:
+            revision = connection.execute(
+                text("SELECT version_num FROM osw_alembic_version")
+            ).scalar_one()
+        self.assertEqual(revision, "0002_branding")
+
     def test_foreign_keys_reference_only_osw_tables(self):
         inspector = inspect(self.engine)
         for table_name in inspector.get_table_names():
